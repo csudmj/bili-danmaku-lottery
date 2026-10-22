@@ -1,0 +1,52 @@
+// @see - https://www.electron.build/configuration/configuration
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.xiangchijinsixiaqiu.luckdraw",
+  "asar": true,
+  "npmRebuild": false,
+  "electronDist": "node_modules/electron/dist",
+  "extraFiles": [{"from": "distribution/使用说明.txt", "to": "使用说明.txt"}, {"from": "LICENSE", "to": "LICENSE-project.txt"}, {"from": "THIRD_PARTY_LICENSES.txt", "to": "THIRD_PARTY_LICENSES.txt"}],
+  "productName": "抽奖姬",
+  "directories": {
+    "app": ".build-cache/app",
+    "output": "release/v${version}"
+  },
+  "files": [
+    "dist",
+    "dist-electron"
+  ],
+  "mac": {
+    "target": [
+      "dmg"
+    ],
+    "artifactName": "${productName}-Mac-v${version}-Installer.${ext}"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "zip",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "public/icon.ico",
+    "signAndEditExecutable": true,
+    "artifactName": "${productName}-Windows-x64-v${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false
+  },
+  "linux": {
+    "target": [
+      "AppImage",
+      "deb"
+    ],
+    "artifactName": "${productName}-Linux-v${version}.${ext}",
+    "icon": "public/icon.png"
+  }
+}
+
