@@ -1,4 +1,17 @@
 export type MedalRule = 'off' | 'wear';
+export type GuardLevel = 0 | 1 | 2 | 3;
+
+// info[7] is the live room's guard identity. A medal may belong to another room.
+export function parseGuard(info: unknown, anchorUid: number): GuardLevel | null {
+    if (!Array.isArray(info)) return null;
+    const valid=(value: unknown): value is GuardLevel => typeof value==='number' && Number.isInteger(value) && value>=0 && value<=3;
+    if (valid(info[7])) return info[7];
+    const medal=parseMedal(info);
+    if (!medal || anchorUid<=0 || medal.anchorUid!==anchorUid) return null;
+    const modern=info[0]?.[15]?.user?.medal;
+    const value=modern?.guard_level ?? info[3]?.[10];
+    return valid(value)?value:null;
+}
 
 export interface FanMedal {
     name: string;

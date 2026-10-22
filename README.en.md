@@ -1,10 +1,12 @@
 # 抽奖姬
 
-**Developer: 想吃金丝虾球** · Windows 10/11 x64 · Version 1.5.0
+**Developer: 想吃金丝虾球** · Windows 10/11 x64 · Version 1.6.0
 
 [简体中文](README.md) | [English](README.en.md)
 
 A desktop tool for Bilibili live interactions: collect keyword-based entries for a random draw or a first-come queue, and display participants and winners in a compact portrait window.
+
+The room field starts empty and remembers your last entry locally. Paste a full Bilibili live-room URL or erase the room field to clear the saved value. Collection never starts automatically.
 
 ## Features
 
@@ -14,7 +16,9 @@ A desktop tool for Bilibili live interactions: collect keyword-based entries for
 | Fan medal filter | Allow everyone or require a medal belonging to the current room's streamer; no separate lit-status check |
 | Ordered queue | Order eligible messages by arrival at the application; configurable waiting capacity |
 | Manual removal | Remove pending participants from either the main window or portrait window |
-| Draw weights | Default 1; manually set an integer from 1 to 10000 in the main window |
+| Draw weights | Separate captain, admiral, governor, room-fan and other-viewer defaults, all initially 1; individual overrides and reset-to-one |
+| Personal weights | Exact UID matching, or exact-name matching for all namesakes when UID is empty; saved locally, editable, searchable and clearable |
+| Queue adjustment | Drag handles or move arrows in the main window; synchronized portrait order |
 | Portrait window | Pin, minimize, resize, draw, and reset; latest winners appear below the controls |
 | Backgrounds | Choose a local photo, restore the default, and adjust dimming |
 | Automatic scrolling | Independent switches for the main and portrait lists; pauses during interaction |
@@ -24,14 +28,16 @@ A desktop tool for Bilibili live interactions: collect keyword-based entries for
 
 ## Download and quick start
 
-1. Open [Releases](https://github.com/csudmj/bili-danmaku-lottery/releases) and install `danmakullottery-1.5.0-x64.exe` for in-app updates. GitHub's automatic Source code downloads are not runnable application packages.
-2. Alternatively, download `抽奖姬-Windows-x64-v1.5.0.zip` and extract the entire ZIP to a writable directory and run `抽奖姬.exe`. Keep the adjacent `resources`, `locales`, DLLs, and other files. End users do not need Node.js or Python.
+1. Open [Releases](https://github.com/csudmj/bili-danmaku-lottery/releases) and install `danmakullottery-1.6.0-x64.exe` for in-app updates. GitHub's automatic Source code downloads are not runnable application packages.
+2. Alternatively, download `danmakullottery-Windows-x64-v1.6.0.zip` and extract the entire ZIP to a writable directory and run `抽奖姬.exe`. Keep the adjacent `resources`, `locales`, DLLs, and other files. End users do not need Node.js or Python.
 3. Select **登录 B 站** and sign in yourself on the official webpage opened by the app. This session is separate from other browsers.
 4. Select draw or queue mode, enter a room ID and keyword, and choose the medal requirement.
 5. Select **开始收集弹幕**. Wait for **正在获取弹幕** before asking viewers to enter. The portrait window opens after connection succeeds.
 6. Select **抽取** to draw, or serve queued viewers in order and remove them when finished.
 
-See the [illustrated PDF manual in Chinese](docs/抽奖姬_v1.4.0_图文使用说明.pdf). Its 1.4.0 instructions also apply to 1.4.1. Version 1.5.0 uses a new application identity, so users must sign in again and reselect a custom background if needed.
+See the [changelog](CHANGELOG.md) and [publishing guide](docs/发布与升级指南.md) (Chinese).
+
+Personal UID rules take priority over name-only rules, followed by identity defaults. A name-only rule applies to every viewer with that exact name. Editing the personal list does not retroactively change admitted viewers. Applying defaults to all pending viewers uses the personal list too; resetting everyone to 1 retains the personal list for future entries. Unknown guard identity falls back to the room-medal category. Identity defaults reset to 1 on restart; the personal list persists locally.
 
 ## Entry rules and controls
 
@@ -49,11 +55,11 @@ Drawing automatically pauses collection. Mode, room, keyword, and medal requirem
 
 ## Current scope
 
-The current release targets Windows x64. Installed builds check stable GitHub releases automatically. Download and installation require user action; installation is blocked during collection. ZIP builds require manual downloads. Users of 1.4.x must manually install 1.5.0 first. Run the bundled `启动检查.cmd` if the app cannot start; it checks file hashes and writes a troubleshooting report. About also supports diagnostic export. The executable is not digitally signed. Its company-name field is not a certificate-verified publisher identity.
+The current release targets Windows x64. Installed builds check stable GitHub releases automatically. Download and installation require user action; installation is blocked during collection. ZIP builds require manual downloads. Versions without in-app updates require a manual installation of the current release. Run the bundled `启动检查.cmd` if the app cannot start; it checks file hashes and writes a troubleshooting report. About also supports diagnostic export. The executable is not digitally signed. Its company-name field is not a certificate-verified publisher identity.
 
 ## Data and distribution
 
-Login information and custom backgrounds are stored in the current Windows user's application-data directory, not the release ZIP. Distribute the complete release package without personal application data. Offline demonstration data, real-message samples, and local backups are excluded from the software and source upload packages. Manual screenshots use demonstration participants.
+Login information and custom backgrounds are stored in the current Windows user's application-data directory, not the release ZIP. Distribute the complete release package without personal application data. Offline demonstration data, real-message samples, and local backups are excluded from the software and source upload packages.
 
 ## Development
 

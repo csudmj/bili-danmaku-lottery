@@ -9,6 +9,8 @@ import {startWebSocket, stopWebSocket, configureFilter} from './api.ts';
 import {setupUpdates} from './updates.ts';
 import {setupDiagnostics, watchWindow} from './diagnostics.ts';
 import type {MedalRule} from './eligibility.ts';
+import {loadPersonalWeights,savePersonalWeights} from './personal-weights.ts';
+import type {PersonalWeight} from './lottery.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 process.env.APP_ROOT = path.join(__dirname, '..');
@@ -26,7 +28,7 @@ let uid = 0;
 let user: LotterySnapshot['user'] = null;
 let loginStatus: LotterySnapshot['loginStatus'] = 'checking';
 let connection: ConnectionState = 'stopped';
-let roomId = '1774682668';
+let roomId = '';
 let keyword = '';
 let medalRule: MedalRule = 'off';
 let ready = false;
@@ -36,6 +38,9 @@ let startRequest = 0;
 let loginCheck: Promise<boolean> | null = null;
 let pendingRoom = '';
 const pool = new LotteryPool();
+let personalWeights:PersonalWeight[]=[];
+let personalWeightsLoadError=false;
+const personalWeightsPath=()=>path.join(app.getPath('userData'),'personal-weights.json');
 
 function snapshot(): LotterySnapshot {
     return {...pool.snapshot(), roomId, keyword, medalRule, connection, user, ready, loginStatus,
@@ -58,12 +63,13 @@ function loadLocal(window: BrowserWindow, overlay = false) {
 }
 function createWindow() {
     mainWindow = new BrowserWindow({
-        title: '抽奖姬', width: 1320, height: 900,
-        minWidth: 1040, minHeight: 760, backgroundColor: '#101526',
+        title: `抽奖姬 V${app.getVersion()}`, width: 1320, height: 900,
+        minWidth: 800, minHeight: 560, backgroundColor: '#101526',
         icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
         webPreferences: {preload: path.join(__dirname, 'preload.mjs'), backgroundThrottling: false},
     });
     watchWindow(mainWindow);
+    mainWindow.on('page-title-updated', event => event.preventDefault());
     mainWindow.setMenuBarVisibility(false);
     mainWindow.on('closed', () => {mainWindow = null; app.quit();});
     mainWindow.webContents.on('did-finish-load', () => {
@@ -110,7 +116,7 @@ async function refreshLogin(): Promise<boolean> {
     try {return await loginCheck;} catch (error) {loginStatus = 'error'; broadcast(); throw error;} finally {loginCheck = null;}
 }
 async function openRoomPage(room: unknown) {
-    if (typeof room !== 'string' || !/^\d+$/.test(room)) throw new Error('请先填写正确的直播间号');
+    if (typeof room !== 'string' || !/^\d*$/.test(room)) throw new Error('请填写正确的直播间号');
     if (!pageWindow || pageWindow.isDestroyed()) {
         const window = new BrowserWindow({
             title: 'B站网页登录 / 直播间', width: 1200, height: 850,
@@ -132,6 +138,7 @@ async function openRoomPage(room: unknown) {
         });
     }
     pageWindow.show(); pageWindow.focus(); pendingRoom = '';
+    if(!room){await pageWindow.loadURL('https://passport.bilibili.com/login');await refreshLogin();return;}
     await pageWindow.loadURL(`https://live.bilibili.com/${room}`);
     if (!await refreshLogin()) {
         pendingRoom = room;
@@ -237,6 +244,22 @@ handle('queue:limit', (_event, value) => {
     if (pool.snapshot().mode !== 'queue') throw new Error('请先启动排队模式');
     pool.configure('queue', value as number); broadcast();
 }, false);
+handle('weights:rules', (_event,value)=>{
+    const input=value as {rules:import('./lottery.ts').WeightRules;applyExisting:boolean};
+    if(!input || typeof input.applyExisting!=='boolean')throw new Error('无效的权重设置');
+    pool.setWeightRules(input.rules,input.applyExisting);broadcast();
+},false);
+handle('weights:reset',()=>{pool.resetWeights();broadcast();},false);
+handle('weights:personal:get',()=>({entries:personalWeights,loadError:personalWeightsLoadError}),false);
+handle('weights:personal:save',(_event,value)=>{
+    personalWeights=savePersonalWeights(personalWeightsPath(),value);
+    pool.setPersonalWeights(personalWeights);personalWeightsLoadError=false;return personalWeights;
+},false);
+handle('queue:move',(_event,value)=>{
+    const input=value as {uid:number;targetUid:number;placement:'before'|'after'};
+    if(!input||!Number.isSafeInteger(input.uid)||!Number.isSafeInteger(input.targetUid))throw new Error('无效的队列成员');
+    pool.move(input.uid,input.targetUid,input.placement);broadcast();
+},false);
 handle('overlay:minimize', event => {if (event.sender === overlayWindow?.webContents) overlayWindow.minimize();});
 handle('overlay:pin', event => {
     if (event.sender !== overlayWindow?.webContents) throw new Error('仅小窗可切换置顶');
@@ -262,6 +285,7 @@ export function sendConnectionState(state: ConnectionState, message?: string) {
 }
 app.whenReady().then(() => {
     setupDiagnostics(() => mainWindow, stopCollection);
+    try{personalWeights=loadPersonalWeights(personalWeightsPath());pool.setPersonalWeights(personalWeights);}catch{personalWeightsLoadError=true;}
     createWindow();
     void setupUpdates(() => mainWindow, () => connection !== 'stopped').catch(() => notice('更新组件初始化失败，请使用启动检查或重新安装'));
     const timer = setInterval(() => {void refreshLogin().catch(() => {});}, 60000);

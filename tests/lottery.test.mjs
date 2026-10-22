@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {LotteryPool} from '../electron/lottery.ts';
+import {LotteryPool,DEFAULT_WEIGHTS} from '../electron/lottery.ts';
 
 test('shared pool rejects invalid IDs, deduplicates and never redraws a winner', () => {
     const pool = new LotteryPool();
@@ -19,7 +19,7 @@ test('reset before or after a draw clears history and permits the same viewer ag
         pool.add({uid:1, name:'观众'});
         if (drawFirst) pool.draw(1);
         pool.reset();
-        assert.deepEqual(pool.snapshot(), {participants:[], winners:[], latestWinners:[], drawNumber:0, total:0, mode:'lottery', queueLimit:20, removedCount:0});
+        assert.deepEqual(pool.snapshot(), {participants:[], winners:[], latestWinners:[], drawNumber:0, total:0, mode:'lottery', queueLimit:20, removedCount:0,weightRules:DEFAULT_WEIGHTS,queueOrderEdited:false});
         assert.equal(pool.add({uid:1, name:'观众'}), true);
     }
 });

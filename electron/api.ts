@@ -5,7 +5,7 @@ import DanmuExtractor from './DanmuExtractor';
 import {getBuvid3, getCookies, getUid, sendMsgToRenderer, sendConnectionState} from "./main.ts";
 import fetchCookie from 'fetch-cookie';
 import Cookie = Electron.Cookie;
-import {parseMedal, isEligible, type FanMedal, type MedalRule} from './eligibility.ts';
+import {parseMedal, parseGuard, isEligible, type FanMedal, type MedalRule, type GuardLevel} from './eligibility.ts';
 import {signRequest} from "./signTool.ts";
 
 export const fetchWithCookies = fetchCookie(fetch);
@@ -134,16 +134,18 @@ danmuExtractor.on('MsgData', (content) => {
         const userName = content.info[2][1];
         const message = content.info[1];
         const medal = parseMedal(content.info);
+        const guardLevel = parseGuard(content.info,currentAnchorUid);
         console.log(`${userName}(uid: ${userUID}) 的弹幕: ${message}`);
         sendMsgToRenderer('danmu_msg', {
             name: userName,
             uid: userUID,
             content: message,
             medal,
+            guardLevel,
         })
         // Anonymous/invalid UIDs must never become lottery participants.
         if (Number.isSafeInteger(userUID) && userUID > 0) {
-            checkForKeywords(message, userName, userUID, medal);
+            checkForKeywords(message, userName, userUID, medal, guardLevel);
         }
     }
 });
@@ -155,9 +157,9 @@ export function configureFilter(word: string, rule: MedalRule) {
     keyword = word;
     medalRule = rule;
 }
-function checkForKeywords(content: string, userName: string, uid: number, medal: FanMedal | null) {
+function checkForKeywords(content: string, userName: string, uid: number, medal: FanMedal | null, guardLevel: GuardLevel | null) {
     if (isEligible(content, keyword, medal, medalRule, currentAnchorUid)) {
-        sendMsgToRenderer('add_user', {name: userName, uid, medal});
+        sendMsgToRenderer('add_user', {name: userName, uid, medal, guardLevel, hasRoomMedal: currentAnchorUid>0 && medal?.anchorUid===currentAnchorUid});
     }
 }
 

@@ -13,7 +13,7 @@ class Window extends EventEmitter {
     isDestroyed() {return false;} setAlwaysOnTop() {} close() {this.emit('closed');}
 }
 globalThis.__lotteryTestElectron = {
-    app:{whenReady:()=>Promise.resolve(), on:()=>{}, quit:()=>{}}, BrowserWindow:Window,
+    app:{getVersion:()=> '1.6.0', whenReady:()=>Promise.resolve(), on:()=>{}, quit:()=>{}}, BrowserWindow:Window,
     ipcMain:{handle:(channel,handler)=>handlers.set(channel,handler)}, clipboard:{writeText:()=>{}},
     session:{defaultSession:{fetch:async()=>({json:async()=>({code:0,data:{isLogin:true,mid:123,uname:'离线测试账号'}})}),cookies:{get:async()=>[]}}}
 };
@@ -72,6 +72,9 @@ test('main and overlay share draw/pause/reset/resume; retry after failed restart
     await call('lottery:start',{...config,mode:'queue',queueLimit:2});
     add(5); add(3); add(7);
     assert.deepEqual((await state()).participants.map(p=>p.uid),[5,3]);
+    assert.equal((await call('queue:move',{uid:3,targetUid:5,placement:'before'},windows[1])).ok,false);
+    assert.equal((await call('queue:move',{uid:3,targetUid:5,placement:'before'})).ok,true);
+    assert.deepEqual((await state()).participants.map(p=>p.uid),[3,5]);
     assert.equal((await call('lottery:draw',1)).ok,false);
     assert.equal((await call('participant:remove',5,windows[1])).ok,true);
     add(5);add(7);
@@ -88,6 +91,10 @@ test('main and overlay share draw/pause/reset/resume; retry after failed restart
     assert.equal((await call('participant:weight',{uid:1,weight:8},windows[1])).ok,false);
     assert.equal((await call('participant:weight',{uid:1,weight:8})).ok,true);
     assert.equal((await state()).participants[0].weight,8);
+    assert.equal((await call('weights:reset',undefined,windows[1])).ok,false);
+    assert.equal((await call('weights:personal:get',undefined,windows[1])).ok,false);
+    assert.equal((await call('weights:reset')).ok,true);
+    assert.deepEqual((await state()).participants.map(p=>p.weight),[1,1]);
     await call('participant:remove',1);
     assert.equal((await call('lottery:draw',1)).data[0].uid,2);
     await call('lottery:reset');

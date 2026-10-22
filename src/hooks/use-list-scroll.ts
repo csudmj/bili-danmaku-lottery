@@ -4,6 +4,7 @@ export function useListScroll(key: string) {
     const ref=useRef<HTMLDivElement>(null);
     const [enabled,setEnabled]=useState(()=>localStorage.getItem(key)!=='off');
     const pauseUntil=useRef(0);
+    const holding=useRef(false);
     const pause=()=>{pauseUntil.current=performance.now()+5000;};
     useEffect(()=>{localStorage.setItem(key,enabled?'on':'off');},[enabled,key]);
     useEffect(()=>{
@@ -12,7 +13,7 @@ export function useListScroll(key: string) {
         const tick=(now:number)=>{
             const dt=Math.min(80,Math.max(0,now-previous));previous=now;
             const el=ref.current;
-            if(el && !document.hidden && now>=pauseUntil.current && now>=edgeUntil && !el.contains(document.activeElement)){
+            if(el && !holding.current && !document.hidden && now>=pauseUntil.current && now>=edgeUntil && !el.contains(document.activeElement)){
                 const max=el.scrollHeight-el.clientHeight;
                 if(max>1){
                     remainder+=dt*0.022;
@@ -26,5 +27,5 @@ export function useListScroll(key: string) {
         frame=requestAnimationFrame(tick);
         return ()=>cancelAnimationFrame(frame);
     },[enabled]);
-    return {ref,enabled,toggle:()=>setEnabled(v=>!v),pause};
+    return {ref,enabled,toggle:()=>setEnabled(v=>!v),pause,hold:(value:boolean)=>{holding.current=value;pause();}};
 }

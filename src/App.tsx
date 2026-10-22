@@ -1,15 +1,17 @@
 import {useEffect, useRef, useState} from 'react';
 import type {CSSProperties, ReactNode} from 'react';
 import {ArrowUpRight, Check, ChevronRight, Copy, Crown, Gift, Image as ImageIcon, LogIn, MessageCircle,
-    ListOrdered, Minus, SlidersHorizontal, UserMinus, MonitorUp, Moon, Pause, Pin, Play, Radio, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Ticket, Users, X} from 'lucide-react';
+    GripVertical, ArrowUp, ArrowDown, ListOrdered, Minus, SlidersHorizontal, UserMinus, MonitorUp, Moon, Pause, Pin, Play, Radio, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Ticket, Users, X} from 'lucide-react';
 import type {LotterySnapshot, Participant, Danmu, ActivityMode} from '../electron/lottery';
 import type {MedalRule} from '../electron/eligibility';
 import './App.css';
 import {About} from './components/About';
+import {WeightSettings} from './components/WeightSettings';
 import {useListScroll} from './hooks/use-list-scroll';
+import {parseRoom, readRoom, saveRoom} from '../shared/room-preference';
 
-const initial: LotterySnapshot = {mode: 'lottery', queueLimit: 20, removedCount: 0, participants: [], winners: [], latestWinners: [], drawNumber: 0, total: 0,
-    roomId: '1774682668', keyword: '', medalRule: 'off', connection: 'stopped', user: null, loginStatus: 'checking',
+const initial: LotterySnapshot = {weightRules:{captain:1,admiral:1,governor:1,fan:1,ordinary:1},queueOrderEdited:false,mode: 'lottery', queueLimit: 20, removedCount: 0, participants: [], winners: [], latestWinners: [], drawNumber: 0, total: 0,
+    roomId: '', keyword: '', medalRule: 'off', connection: 'stopped', user: null, loginStatus: 'checking',
     overlayOpen: false, overlayPinned: true, ready: false};
 const isOverlay = location.hash === '#overlay';
 
@@ -23,6 +25,7 @@ function Person({person, index, winner = false, onRemove, onWeight}: {person: Pa
     return <div className={`person-row ${winner ? 'person-winner' : ''}`}>
         <span className="person-number">{winner ? <Crown size={16}/> : String((index ?? 0) + 1).padStart(2, '0')}</span>
         <div className="person-info"><strong title={person.name}>{person.name}</strong><small>UID {person.uid}</small></div>
+        {person.guardLevel ? <span className="guard-label">{({1:'总督',2:'提督',3:'舰长'} as Record<number,string>)[person.guardLevel]}</span> : null}
         {person.medal && <span className="medal" title={person.medal.name}><ShieldCheck size={11}/>{person.medal.name}<b>{person.medal.level}</b></span>}
         {onWeight && <Button className="weight-button" title="修改抽奖权重" onClick={onWeight}><SlidersHorizontal size={12}/>{person.weight ?? 1}</Button>}
         {onRemove ? <Button className="remove-person" title={`移除 ${person.name}`} aria-label={`移除 ${person.name}`} onClick={onRemove}><UserMinus size={14}/></Button> : !winner && <Check className="admitted-check" size={14}/>}
@@ -32,8 +35,10 @@ function Person({person, index, winner = false, onRemove, onWeight}: {person: Pa
 
 function App() {
     const [state, setState] = useState<LotterySnapshot>(initial);
+    const draggedUid = useRef<number|null>(null);
+    const [dropHint,setDropHint]=useState('');
     const [messages, setMessages] = useState<Danmu[]>([]);
-    const [room, setRoom] = useState(initial.roomId);
+    const [room, setRoom] = useState(() => readRoom(localStorage));
     const [word, setWord] = useState('');
     const [rule, setRule] = useState<MedalRule>('off');
     const [mode, setMode] = useState<ActivityMode>('lottery');
@@ -109,6 +114,35 @@ function App() {
     async function draw(amount = 1) {
         if (await command('lottery:draw', amount)) setTab('winners');
     }
+    function renderManagedPerson(person:Participant,index:number){
+        const row=<Person person={person} index={index} winner={tab==='winners'} onRemove={tab==='participants'?()=>setRemoveTarget(person):undefined} onWeight={!queueMode&&tab==='participants'?()=>{setWeightTarget(person);setWeightDraft(person.weight??1);}:undefined}/>;
+        if(!queueMode||tab!=='participants')return <div key={person.uid}>{row}</div>;
+        const finish=()=>{draggedUid.current=null;setDropHint('');listScroll.hold(false);};
+        function targetAt(x:number,y:number){
+            const element=document.elementFromPoint(x,y)?.closest<HTMLElement>('[data-queue-uid]');
+            if(!element)return null;
+            const targetUid=Number(element.dataset.queueUid),rect=element.getBoundingClientRect();
+            return {targetUid,placement:y<rect.top+rect.height/2?'before' as const:'after' as const};
+        }
+        return <div key={person.uid} data-queue-uid={person.uid} className={`queue-managed ${dropHint.startsWith(person.uid+':')?dropHint.split(':')[1]:''}`}>
+            <div className="queue-order-controls"><button className="drag-handle" disabled={Boolean(busy)} aria-label={`拖动 ${person.name} 调整顺序`} title="拖动调整队列顺序" onPointerDown={event=>{
+                if(event.button!==0||busy)return;
+                event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);
+                draggedUid.current=person.uid;listScroll.hold(true);
+            }} onPointerMove={event=>{
+                if(draggedUid.current!==person.uid)return;
+                const target=targetAt(event.clientX,event.clientY);
+                setDropHint(target&&target.targetUid!==person.uid?`${target.targetUid}:${target.placement}`:'');
+            }} onPointerUp={event=>{
+                if(draggedUid.current!==person.uid)return;
+                const target=targetAt(event.clientX,event.clientY);finish();
+                if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
+                if(target&&target.targetUid!==person.uid)void command('queue:move',{uid:person.uid,...target});
+            }} onPointerCancel={finish} onLostPointerCapture={finish}><GripVertical size={16}/></button>
+            <button disabled={Boolean(busy)||index===0} aria-label={`上移 ${person.name}`} onClick={()=>command('queue:move',{uid:person.uid,targetUid:state.participants[index-1].uid,placement:'before'})}><ArrowUp size={12}/></button>
+            <button disabled={Boolean(busy)||index===state.participants.length-1} aria-label={`下移 ${person.name}`} onClick={()=>command('queue:move',{uid:person.uid,targetUid:state.participants[index+1].uid,placement:'after'})}><ArrowDown size={12}/></button></div>{row}
+        </div>;
+    }
     const themePanel = <div className="appearance-panel">
         <div className="section-label"><ImageIcon size={14}/>背景照片<Button title="关闭背景设置" aria-label="关闭背景设置" onClick={() => setAppearance(false)}><X size={14}/></Button></div>
         <div className="background-actions"><Button disabled={Boolean(busy)} tone="blue" onClick={() => command('background:select')}><ImageIcon size={16}/>选择照片</Button><Button disabled={!background || Boolean(busy)} onClick={() => command('background:reset')}><RotateCcw size={14}/>恢复默认</Button></div>
@@ -137,7 +171,7 @@ function App() {
         {appearance && themePanel}
         <section className="overlay-draw-area">
             <div className="overlay-kicker"><span className={`live-dot ${active ? 'on' : ''}`}/>{state.connection === 'connected' ? '正在获取弹幕' : state.connection === 'connecting' ? '正在连接弹幕' : '弹幕收集暂停'}</div>
-            {queueMode ? <div className="queue-heading"><ListOrdered size={21}/><strong>按弹幕顺序排队</strong><span>{state.participants.length} / {state.queueLimit}</span></div> : <Button tone="gold" className="overlay-draw" disabled={Boolean(busy) || !state.ready || !state.user || state.participants.length === 0} onClick={() => draw(1)}><Gift size={20}/>{busy === 'lottery:draw' ? '正在揭晓…' : '抽取一位'}<Sparkles size={17}/></Button>}
+            {queueMode ? <div className="queue-heading"><ListOrdered size={21}/><strong>{state.queueOrderEdited?'当前排队顺序':'按弹幕顺序排队'}</strong><span>{state.participants.length} / {state.queueLimit}</span></div> : <Button tone="gold" className="overlay-draw" disabled={Boolean(busy) || !state.ready || !state.user || state.participants.length === 0} onClick={() => draw(1)}><Gift size={20}/>{busy === 'lottery:draw' ? '正在揭晓…' : '抽取一位'}<Sparkles size={17}/></Button>}
             <Button className="overlay-restart" disabled={Boolean(busy) || !state.user || !state.keyword} onClick={() => setConfirmReset(true)}><RotateCcw size={14}/>{busy === 'lottery:restart' ? '正在重新连接…' : '重置并重新收集'}</Button>
             <p className="overlay-word">{state.keyword ? <>发送 <b>{state.keyword}</b> {queueMode ? '加入排队' : '参与抽奖'}</> : '等待主界面设置抽奖'}</p>
         </section>
@@ -148,7 +182,7 @@ function App() {
         <section className="overlay-list"><div className="list-scroll-controls"><button className="action quiet" aria-pressed={listScroll.enabled} onClick={listScroll.toggle}>{listScroll.enabled ? "自动滚动：开" : "自动滚动：关"}</button></div><div className="overlay-list-title"><span><Users size={15}/>{queueMode ? '当前队列' : '成功参与'}</span><b>{state.participants.length}<small>{queueMode ? ' 人等待' : ' 人待抽'}</small></b></div>
             <div className="overlay-list-scroll" ref={listScroll.ref} onWheel={listScroll.pause} onPointerDown={listScroll.pause}>{state.participants.length ? state.participants.map((person, index) => <Person key={person.uid} person={person} index={index} onRemove={() => setRemoveTarget(person)}/>) : <Empty icon={<Ticket size={24}/>} title={state.total ? '当前名单为空' : '等待第一位参与者'} text={queueMode ? '空位按后续弹幕顺序补入' : state.total ? '点击上方重置，开启下一轮' : '符合条件的弹幕会自动加入'}/>}</div>
         </section>
-        <footer className="overlay-footer"><ShieldCheck size={12}/>同一账号，每轮一次参与<span>共 {state.total} 人参与</span></footer>{confirmReset && <div className="modal-scrim"><section role="alertdialog" aria-modal="true" aria-labelledby="overlay-reset-title" className="reset-dialog"><RotateCcw size={24}/><h2 id="overlay-reset-title">重新收集弹幕？</h2><p>清空本轮参与和中奖记录，沿用原条件重新收集。</p><div><Button onClick={() => setConfirmReset(false)}>取消</Button><Button tone="blue" disabled={Boolean(busy)} onClick={async () => {setConfirmReset(false); await command('lottery:restart');}}>重置并收集</Button></div></section></div>}{managementDialog}{toast}
+        <footer className="overlay-footer"><ShieldCheck size={12}/>{queueMode&&state.queueOrderEdited?'主持人已调整队列顺序':'同一账号，每轮一次参与'}<span>共 {state.total} 人参与</span></footer>{confirmReset && <div className="modal-scrim"><section role="alertdialog" aria-modal="true" aria-labelledby="overlay-reset-title" className="reset-dialog"><RotateCcw size={24}/><h2 id="overlay-reset-title">重新收集弹幕？</h2><p>清空本轮参与和中奖记录，沿用原条件重新收集。</p><div><Button onClick={() => setConfirmReset(false)}>取消</Button><Button tone="blue" disabled={Boolean(busy)} onClick={async () => {setConfirmReset(false); await command('lottery:restart');}}>重置并收集</Button></div></section></div>}{managementDialog}{toast}
     </main>;
 
     return <main className="studio-shell" style={style}>
@@ -169,7 +203,11 @@ function App() {
             <aside className="glass-panel settings-panel"><div className="panel-heading"><span><Ticket size={17}/>本轮设置</span><small>01 / SETUP</small></div>
                 <div className="settings-fields"><div className="mode-tabs"><Button disabled={locked} className={mode === 'lottery' ? 'selected' : ''} onClick={() => {setMode('lottery'); setTab('participants');}}><Gift size={14}/>抽奖</Button><Button disabled={locked} className={mode === 'queue' ? 'selected' : ''} onClick={() => {setMode('queue'); setTab('participants');}}><ListOrdered size={14}/>排队</Button></div>
                 {queueMode && <div className="queue-limit"><label>等待人数上限<input aria-label="排队人数上限" type="number" min="1" max="10000" value={queueLimit} onChange={event => setQueueLimit(Number(event.target.value))}/></label>{state.mode === 'queue' && state.ready && <Button disabled={Boolean(busy) || queueLimit === state.queueLimit} onClick={() => command('queue:limit',queueLimit)}>应用</Button>}<small>满员时不再入列；移除后开放空位，新观众需重新发送关键词。</small></div>}
-                <label className="field-label">直播间号<input aria-label="直播间号" inputMode="numeric" disabled={locked} value={room} onChange={event => setRoom(event.target.value.replace(/\D/g, ''))} placeholder="输入直播间号"/></label>
+                <label className="field-label">直播间号<input aria-label="直播间号" disabled={locked} value={room} onChange={event => {
+                    const value=parseRoom(event.target.value);
+                    if(value===null){setNotice('请输入数字房间号，或完整的 live.bilibili.com 直播链接');return;}
+                    setRoom(value);if(!saveRoom(localStorage,value))setNotice('房间号可正常使用，但暂时无法保存到本机');
+                }} placeholder="输入房间号或粘贴直播链接"/></label>
                 <label className="field-label">参与互动词<input aria-label="参与互动词" disabled={locked} value={word} onChange={event => setWord(event.target.value)} placeholder="例如：今晚好运" maxLength={100}/><small>弹幕包含互动词，即可匹配</small></label>
                 <fieldset className="rule-options" disabled={locked}><legend>粉丝牌要求</legend>
                     <label className={rule === 'off' ? 'checked' : ''}><input type="radio" name="medal" checked={rule === 'off'} onChange={() => setRule('off')}/><Users size={15}/><span>所有观众<small>不限粉丝牌</small></span><i>{rule === 'off' && <Check size={12}/>}</i></label>
@@ -186,15 +224,15 @@ function App() {
                 </div><div className="panel-footnote"><ShieldCheck size={12}/>仅有效 UID 可参与 · 保留最近 2000 条弹幕</div>
             </section>
             <section className="glass-panel people-panel"><div className="panel-heading"><span><Users size={17}/>{queueMode ? '排队名单' : '抽奖名单'}</span><small>同步直播小窗</small></div>
-                <div className="list-scroll-controls"><button className="action quiet" aria-pressed={listScroll.enabled} onClick={listScroll.toggle}>{listScroll.enabled ? "自动滚动：开" : "自动滚动：关"}</button></div><div className="list-tabs"><button className={tab === 'participants' ? 'selected' : ''} onClick={() => setTab('participants')}>{queueMode ? '当前队列' : '待抽观众'} <b>{state.participants.length}</b></button>{!queueMode && <button className={tab === 'winners' ? 'selected' : ''} onClick={() => setTab('winners')}>中奖名单 <b>{state.winners.length}</b></button>}</div>
-                <div className="panel-scroll" ref={listScroll.ref} onWheel={listScroll.pause} onPointerDown={listScroll.pause}>{(tab === 'participants' ? state.participants : state.winners).length ? (tab === 'participants' ? state.participants : state.winners).map((person, index) => <Person key={person.uid} person={person} index={index} winner={tab === 'winners'} onRemove={tab === 'participants' ? () => setRemoveTarget(person) : undefined} onWeight={!queueMode && tab === 'participants' ? () => {setWeightTarget(person); setWeightDraft(person.weight ?? 1);} : undefined}/>) : <Empty icon={tab === 'participants' ? <Ticket size={30}/> : <Crown size={30}/>} title={tab === 'participants' ? '暂无参与者' : '暂无中奖者'} text={tab === 'participants' ? '符合关键词和粉丝牌条件的观众自动加入' : '点击抽取，迎接本轮中奖者'}/>}</div>
+                <div className="list-scroll-controls">{!queueMode && <WeightSettings rules={state.weightRules} medalRequired={rule==='wear'}/>}<button className="action quiet" aria-pressed={listScroll.enabled} onClick={listScroll.toggle}>{listScroll.enabled ? "自动滚动：开" : "自动滚动：关"}</button></div><div className="list-tabs"><button className={tab === 'participants' ? 'selected' : ''} onClick={() => setTab('participants')}>{queueMode ? '当前队列' : '待抽观众'} <b>{state.participants.length}</b></button>{!queueMode && <button className={tab === 'winners' ? 'selected' : ''} onClick={() => setTab('winners')}>中奖名单 <b>{state.winners.length}</b></button>}</div>
+                <div className="panel-scroll" ref={listScroll.ref} onWheel={listScroll.pause} onPointerDown={listScroll.pause}>{(tab === 'participants' ? state.participants : state.winners).length ? (tab === 'participants' ? state.participants : state.winners).map((person, index) => renderManagedPerson(person,index)) : <Empty icon={tab === 'participants' ? <Ticket size={30}/> : <Crown size={30}/>} title={tab === 'participants' ? '暂无参与者' : '暂无中奖者'} text={tab === 'participants' ? '符合关键词和粉丝牌条件的观众自动加入' : '点击抽取，迎接本轮中奖者'}/>}</div>
                 {!queueMode && <><div className="draw-controls"><label>抽取<input aria-label="抽取人数" type="number" min="1" max={Math.max(1, state.participants.length)} value={count} onChange={event => setCount(Number(event.target.value))}/>位</label><Button tone="gold" disabled={Boolean(busy) || !state.user || !state.ready || !Number.isInteger(count) || count < 1 || count > state.participants.length} onClick={() => draw(count)}><Gift size={17}/>抽取<ChevronRight size={14}/></Button></div>
                 <p className="draw-note">点击抽取将停止收集 · 已中奖者不重复抽取</p></>}
-                <p className="management-note">{queueMode ? `按符合条件的弹幕到达顺序排列 · ${state.participants.length}/${state.ready ? state.queueLimit : queueLimit} 人` : '默认权重 1 · 点击名单中的权重按钮修改'}</p>
+                <p className="management-note">{queueMode ? `拖动左侧手柄调整顺序，也可用上下箭头 · ${state.participants.length}/${state.ready ? state.queueLimit : queueLimit} 人` : 'UID 规则优先于昵称规则和身份档位 · 仍可逐人修改权重'}</p>
             </section>
         </section>
         {!queueMode && <section className="winner-banner"><span className="winner-banner-icon"><Crown size={24}/></span><div><small>{state.latestWinners.length ? `第 ${state.drawNumber} 次抽取 · 恭喜中奖` : '本轮中奖者'}</small><strong>{state.latestWinners.length ? state.latestWinners.map(person => person.name).join('、') : '尚未抽奖'}</strong></div><Button disabled={!state.winners.length || Boolean(busy)} onClick={async () => {if (await command('lottery:copy')) setNotice('中奖名单已复制');}}><Copy size={15}/>复制中奖名单</Button></section>}
-        <footer className="studio-footer"><span><Sparkles size={12}/>抽奖姬</span><span>本地随机抽取 · UID 去重 · v1.5.0</span></footer>
+        <footer className="studio-footer"><span><Sparkles size={12}/>抽奖姬</span><span>本地随机抽取 · UID 去重 · v1.6.0</span></footer>
         {confirmReset && <div className="modal-scrim"><section role="alertdialog" aria-modal="true" aria-labelledby="reset-title" className="reset-dialog"><RotateCcw size={28}/><h2 id="reset-title">开始新的一轮？</h2><p>将停止收集，清空弹幕、参与者和中奖记录。直播小窗也会同步重置。</p><div><Button onClick={() => setConfirmReset(false)}>保留本轮</Button><Button tone="rose" onClick={async () => {if (await command('lottery:reset')) {setConfirmReset(false); setTab('participants');}}}>确认重置</Button></div></section></div>}{managementDialog}{toast}
     </main>;
 }

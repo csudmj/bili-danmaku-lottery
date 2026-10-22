@@ -35,7 +35,7 @@
     ],
     "icon": "public/icon.ico",
     "signAndEditExecutable": true,
-    "artifactName": "${productName}-Windows-x64-v${version}.${ext}"
+    "artifactName": "danmakullottery-Windows-x64-v${version}.${ext}"
   },
   "nsis": {
     "artifactName": "danmakullottery-${version}-x64.exe",

@@ -6,7 +6,7 @@
   },
   "license": "MIT",
   "description": "抽奖姬：支持弹幕抽奖、顺序排队、粉丝牌筛选和直播小窗。开发者：想吃金丝虾球。",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
