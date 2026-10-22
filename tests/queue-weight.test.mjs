@@ -33,7 +33,7 @@ test('weights allocate exact ticket ranges and draw without replacement', () => 
 test('invalid weights and stale removals cannot corrupt the active pool', () => {
     const pool=new LotteryPool();pool.add({...person(1),weight:999});
     assert.equal(pool.snapshot().participants[0].weight,1);
-    for(const w of [0,-1,1.2,10001,Infinity,NaN]) assert.throws(()=>pool.setWeight(1,w));
+    for(const w of [0,-1,1.234,10001,Infinity,NaN]) assert.throws(()=>pool.setWeight(1,w));
     assert.throws(()=>pool.setWeight(999,5));pool.remove(1);assert.throws(()=>pool.remove(1));
     assert.equal(pool.add(person(1)),false);assert.throws(()=>pool.draw(1));
     pool.reset();pool.add(person(1));assert.equal(pool.snapshot().participants[0].weight,1);

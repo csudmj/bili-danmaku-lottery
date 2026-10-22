@@ -1,8 +1,9 @@
+import {parseGift} from './gifts.ts';
 import fetch from 'node-fetch';
 import WebSocket from 'ws';
 import {Buffer} from 'buffer';
 import DanmuExtractor from './DanmuExtractor';
-import {getBuvid3, getCookies, getUid, sendMsgToRenderer, sendConnectionState} from "./main.ts";
+import {getBuvid3, getCookies, getUid, sendMsgToRenderer, sendConnectionState, receiveGift} from "./main.ts";
 import fetchCookie from 'fetch-cookie';
 import Cookie = Electron.Cookie;
 import {parseMedal, parseGuard, isEligible, type FanMedal, type MedalRule, type GuardLevel} from './eligibility.ts';
@@ -126,7 +127,8 @@ function handleWebSocketMessages(_ws: WebSocket, data: WebSocket.Data) {
 
 danmuExtractor.on('MsgData', (content) => {
     if (!activeSocket || !authenticated) return;
-    // console.log('Extracted message:', content);
+    const gift=parseGift(content);
+    if(gift)receiveGift(gift.uid,gift.amount,gift.eventId);
     if (typeof content.cmd === 'string' && content.cmd.split(':')[0] === 'DANMU_MSG') { // 这里只要弹幕吧，因为目前的需求只是抽奖
         // console.log(content.info);
         if (!Array.isArray(content.info) || !Array.isArray(content.info[2]) || typeof content.info[1] !== 'string') return;

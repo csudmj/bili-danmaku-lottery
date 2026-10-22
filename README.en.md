@@ -1,8 +1,11 @@
 # 抽奖姬
 
-**Developer: 想吃金丝虾球** · Windows 10/11 x64 · Version 1.6.0
+**Developer: 想吃金丝虾球** · Windows 10/11 x64 · Version 2.1.0
 
 [简体中文](README.md) | [English](README.en.md)
+
+> V2.1.0 adds draws from your own uploads using creator-center sender IDs, a local history of 20 activities per module, and a single top-level folder in portable ZIPs. Native launch, account switching, real video import/draw, and history persistence were verified. Live paid-gift traffic and the published update path still require field verification. Video parts reporting 1,000 or more messages are blocked to avoid truncated entry pools. See [CHANGELOG](CHANGELOG.md).
+
 
 A desktop tool for Bilibili live interactions: collect keyword-based entries for a random draw or a first-come queue, and display participants and winners in a compact portrait window.
 
@@ -28,8 +31,8 @@ The room field starts empty and remembers your last entry locally. Paste a full 
 
 ## Download and quick start
 
-1. Open [Releases](https://github.com/csudmj/bili-danmaku-lottery/releases) and install `danmakullottery-1.6.0-x64.exe` for in-app updates. GitHub's automatic Source code downloads are not runnable application packages.
-2. Alternatively, download `danmakullottery-Windows-x64-v1.6.0.zip` and extract the entire ZIP to a writable directory and run `抽奖姬.exe`. Keep the adjacent `resources`, `locales`, DLLs, and other files. End users do not need Node.js or Python.
+1. Open [Releases](https://github.com/csudmj/bili-danmaku-lottery/releases) and install `danmakullottery-2.1.0-x64.exe` for in-app updates. GitHub's automatic Source code downloads are not runnable application packages.
+2. Alternatively, download `danmakullottery-Windows-x64-v2.1.0.zip` and extract the entire ZIP to a writable directory and run `抽奖姬.exe`. Keep the adjacent `resources`, `locales`, DLLs, and other files. End users do not need Node.js or Python.
 3. Select **登录 B 站** and sign in yourself on the official webpage opened by the app. This session is separate from other browsers.
 4. Select draw or queue mode, enter a room ID and keyword, and choose the medal requirement.
 5. Select **开始收集弹幕**. Wait for **正在获取弹幕** before asking viewers to enter. The portrait window opens after connection succeeds.
@@ -46,10 +49,10 @@ Personal UID rules take priority over name-only rules, followed by identity defa
 - **Queue:** Capacity defaults to 20 and accepts integers from 1 to 10000. It limits current waiting participants. Apply changes with **应用**; capacity cannot be lower than current occupancy. A full queue has no hidden waiting list. Viewers who were not admitted must send the keyword again after a slot opens.
 - **Weights:** Each selection uses the participant's weight divided by the remaining total weight. Multiple winners are selected sequentially without replacement. A larger weight does not guarantee a win.
 - **Stop collection:** Retains participants, winners, and weights; collection can be resumed.
-- **Main-window reset:** Clears the round and pauses collection so conditions can be changed.
-- **Portrait-window reset:** Clears the round and reconnects using the existing conditions.
+- **Start Collection:** Archives the previous round, including undrawn or empty rounds, and starts a new round.
+- **Portrait Start Collection:** Archives the previous round and starts a new one using the existing conditions.
 - **Close or minimize the portrait window:** Retains data and does not stop collection. Reopen it from the main window.
-- **Exit the application:** Round participants and weights are not restored. Copy the winner list before exiting if you need a record.
+- **Exit the application:** The active round is not resumed. The latest 20 activities per module remain available in History, and personal weight rules persist.
 
 Drawing automatically pauses collection. Mode, room, keyword, and medal requirements are locked during collection or after anyone has entered the round. Reset before changing them. The message feed retains the latest 2000 messages without removing admitted participants.
 
@@ -92,3 +95,12 @@ Issues and pull requests are welcome in this repository. Include the app version
 ## License
 
 The project uses the [MIT License](LICENSE). Required third-party copyright and license notices are included in [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt). Release packages also retain the bundled Electron/Chromium licenses. Product developer: **想吃金丝虾球**.
+
+
+## Video lottery and history
+
+Select **B站视频**, sign into the uploader account inside the app, enter your own video URL or BV ID, and choose parts and a keyword. Participants are deduplicated by real UID. Missing identities, inconsistent pagination, or a part with at least 1,000 comments stop the import instead of producing a potentially incomplete pool. Deleted comments or data withheld by the platform cannot be recovered. Live and video pools are separate; personal weight rules are shared.
+
+**历史记录** separates Bilibili Live and Bilibili Video, storing the most recent 20 activities per module locally across restarts, including participants, removed members, queue order, and draw results. Multiple draws in one activity remain grouped. Optional live loss compensation defaults to +0.1 for each remaining participant per draw click; winners have matching personal rules removed. Optional paid-gift queue sorting uses accumulated amounts for already queued viewers while enabled, with original arrival order breaking ties.
+
+Live rounds: clicking Start Collection again archives the current round (including undrawn or empty rounds) and starts a new one. Pause / Resume preserves participants, winners, weights and the current round settings.
