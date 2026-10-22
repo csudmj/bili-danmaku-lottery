@@ -1,6 +1,6 @@
 # 抽奖姬
 
-**Developer: 想吃金丝虾球** · Windows 10/11 x64 · Version 1.4.1
+**Developer: 想吃金丝虾球** · Windows 10/11 x64 · Version 1.5.0
 
 [简体中文](README.md) | [English](README.en.md)
 
@@ -17,18 +17,21 @@ A desktop tool for Bilibili live interactions: collect keyword-based entries for
 | Draw weights | Default 1; manually set an integer from 1 to 10000 in the main window |
 | Portrait window | Pin, minimize, resize, draw, and reset; latest winners appear below the controls |
 | Backgrounds | Choose a local photo, restore the default, and adjust dimming |
+| Automatic scrolling | Independent switches for the main and portrait lists; pauses during interaction |
+| Updates and About | Installed builds check stable GitHub releases; repository QR code, Issues and PR links |
+| Diagnostics | Runtime error guidance, diagnostic export and a standalone file integrity checker |
 | Clear status | Login and collection status; the portrait window hides the signed-in account name |
 
 ## Download and quick start
 
-1. Open this repository's **Releases** and download `抽奖姬-Windows-x64-v1.4.1.zip`. GitHub's automatic Source code downloads are not runnable application packages.
-2. Extract the entire ZIP to a writable directory and run `抽奖姬.exe`. Keep the adjacent `resources`, `locales`, DLLs, and other files. End users do not need Node.js or Python.
+1. Open [Releases](https://github.com/csudmj/bili-danmaku-lottery/releases) and install `luckdraw-Setup-1.5.0-x64.exe` for in-app updates. GitHub's automatic Source code downloads are not runnable application packages.
+2. Alternatively, download `抽奖姬-Windows-x64-v1.5.0.zip` and extract the entire ZIP to a writable directory and run `抽奖姬.exe`. Keep the adjacent `resources`, `locales`, DLLs, and other files. End users do not need Node.js or Python.
 3. Select **登录 B 站** and sign in yourself on the official webpage opened by the app. This session is separate from other browsers.
 4. Select draw or queue mode, enter a room ID and keyword, and choose the medal requirement.
 5. Select **开始收集弹幕**. Wait for **正在获取弹幕** before asking viewers to enter. The portrait window opens after connection succeeds.
 6. Select **抽取** to draw, or serve queued viewers in order and remove them when finished.
 
-See the [illustrated PDF manual in Chinese](docs/抽奖姬_v1.4.0_图文使用说明.pdf). Its 1.4.0 instructions also apply to 1.4.1. Version 1.4.1 uses a new application identity, so users must sign in again and reselect a custom background if needed.
+See the [illustrated PDF manual in Chinese](docs/抽奖姬_v1.4.0_图文使用说明.pdf). Its 1.4.0 instructions also apply to 1.4.1. Version 1.5.0 uses a new application identity, so users must sign in again and reselect a custom background if needed.
 
 ## Entry rules and controls
 
@@ -46,7 +49,7 @@ Drawing automatically pauses collection. Mode, room, keyword, and medal requirem
 
 ## Current scope
 
-The current release targets Windows x64. GitHub update checks, automatic installation of updates, and an About page with a repository QR code are planned; **they are not included in 1.4.1**. The executable is not digitally signed. Its company-name field is not a certificate-verified publisher identity.
+The current release targets Windows x64. Installed builds check stable GitHub releases automatically. Download and installation require user action; installation is blocked during collection. ZIP builds require manual downloads. Users of 1.4.x must manually install 1.5.0 first. Run the bundled `启动检查.cmd` if the app cannot start; it checks file hashes and writes a troubleshooting report. About also supports diagnostic export. The executable is not digitally signed. Its company-name field is not a certificate-verified publisher identity.
 
 ## Data and distribution
 
@@ -72,7 +75,7 @@ pnpm exec tsc --noEmit
 pnpm run build:win
 ```
 
-Windows ZIPs are written to `release/vVERSION/`. The packaging script includes runtime resources only, excluding tests, caches, and personal login data. Automated tests use network substitutes to check eligibility, deduplication, queue capacity, removal, weighted selection, and synchronized window state. They do not replace live-room testing.
+The Windows installer, ZIP, blockmap and latest.yml are written to `release/vVERSION/`. The packaging script includes runtime resources only, excluding tests, caches, and personal login data. Automated tests use network substitutes to check eligibility, deduplication, queue capacity, removal, weighted selection, and synchronized window state. They do not replace live-room testing.
 
 A manually triggered Windows workflow uploads builds as Actions artifacts without publishing a Release. It still needs an actual GitHub run after the initial upload.
 

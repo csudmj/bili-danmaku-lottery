@@ -4,8 +4,10 @@
   "appId": "com.xiangchijinsixiaqiu.luckdraw",
   "asar": true,
   "npmRebuild": false,
+  "afterSign": "scripts/after-pack.cjs",
+  "publish": [{"provider":"github","owner":"csudmj","repo":"bili-danmaku-lottery","releaseType":"release"}],
   "electronDist": "node_modules/electron/dist",
-  "extraFiles": [{"from": "distribution/使用说明.txt", "to": "使用说明.txt"}, {"from": "LICENSE", "to": "LICENSE-project.txt"}, {"from": "THIRD_PARTY_LICENSES.txt", "to": "THIRD_PARTY_LICENSES.txt"}],
+  "extraFiles": [{"from":"distribution/startup-check.ps1","to":"startup-check.ps1"},{"from":"distribution/启动检查.cmd","to":"启动检查.cmd"},{"from": "distribution/使用说明.txt", "to": "使用说明.txt"}, {"from": "LICENSE", "to": "LICENSE-project.txt"}, {"from": "THIRD_PARTY_LICENSES.txt", "to": "THIRD_PARTY_LICENSES.txt"}],
   "productName": "抽奖姬",
   "directories": {
     "app": ".build-cache/app",
@@ -13,7 +15,8 @@
   },
   "files": [
     "dist",
-    "dist-electron"
+    "dist-electron",
+    "node_modules/**/*"
   ],
   "mac": {
     "target": [
@@ -24,7 +27,7 @@
   "win": {
     "target": [
       {
-        "target": "zip",
+        "target": "nsis",
         "arch": [
           "x64"
         ]
@@ -35,6 +38,8 @@
     "artifactName": "${productName}-Windows-x64-v${version}.${ext}"
   },
   "nsis": {
+    "artifactName": "luckdraw-Setup-${version}-x64.exe",
+    "createDesktopShortcut": true,
     "oneClick": false,
     "perMachine": false,
     "allowToChangeInstallationDirectory": true,

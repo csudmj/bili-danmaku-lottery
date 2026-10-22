@@ -1,6 +1,6 @@
 import {mkdir, readFile, writeFile, cp, rm} from 'node:fs/promises';
 import path from 'node:path';
-import {builtinModules} from 'node:module';
+import {builtinModules, createRequire} from 'node:module';
 import ts from 'typescript';
 
 const root = process.cwd();
@@ -27,7 +27,7 @@ async function copyChunk(relative) {
     visit(ast);
     for (const specifier of imports) {
         if (specifier.startsWith('./')) await copyChunk(specifier.slice(2));
-        else if (specifier !== 'electron' && !builtinModules.includes(specifier) && !specifier.startsWith('node:')) {
+        else if (specifier !== 'electron' && specifier !== 'electron-updater' && !builtinModules.includes(specifier) && !specifier.startsWith('node:')) {
             throw new Error(`Unbundled runtime dependency: ${specifier}`);
         }
     }
@@ -37,5 +37,20 @@ await copyChunk('main.js');
 await copyChunk('preload.mjs');
 const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 const {name, version, description, author, license, type, main} = pkg;
-await writeFile(path.join(staging, 'package.json'), JSON.stringify({name, version, description, author, license, type, main}, null, 2));
-console.log(`Prepared ${version}, ${copied.size} runtime files; all dependencies bundled.`);
+const dependencies = {'electron-updater':pkg.dependencies['electron-updater']};
+// Preserve CommonJS package boundaries and metadata needed by electron-updater.
+// Resolve only declared production dependencies, never copy the development store.
+async function copyDependency(name, from, destination, ancestors = new Set()) {
+    const require = createRequire(from);
+    const manifest = require.resolve(`${name}/package.json`);
+    if (ancestors.has(manifest)) return;
+    const source = path.dirname(manifest), target = path.join(destination,'node_modules',name);
+    await mkdir(path.dirname(target),{recursive:true});
+    await cp(source,target,{recursive:true,filter:file=>!path.relative(source,file).split(path.sep).includes('node_modules')});
+    const metadata = JSON.parse(await readFile(manifest,'utf8'));
+    const next = new Set([...ancestors,manifest]);
+    for (const child of Object.keys(metadata.dependencies || {})) await copyDependency(child,manifest,target,next);
+}
+await copyDependency('electron-updater',path.join(root,'package.json'),staging);
+await writeFile(path.join(staging, 'package.json'), JSON.stringify({name, version, description, author, license, type, main,dependencies}, null, 2));
+console.log(`Prepared ${version}, ${copied.size} runtime files and the updater production dependency tree.`);

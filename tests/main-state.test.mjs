@@ -29,6 +29,8 @@ globalThis.__lotteryTestApi = {
     }
 };
 const hook = registerHooks({resolve(specifier,context,next){
+    if (specifier === './updates.ts' && context.parentURL?.endsWith('/electron/main.ts')) return {url:'data:text/javascript,export async function setupUpdates(){}',shortCircuit:true};
+    if (specifier === './diagnostics.ts' && context.parentURL?.endsWith('/electron/main.ts')) return {url:'data:text/javascript,export function setupDiagnostics(){};export function watchWindow(){}',shortCircuit:true};
     if (specifier === 'electron') return {url:'data:text/javascript,export const {app,BrowserWindow,session,ipcMain,clipboard,dialog,nativeImage}=globalThis.__lotteryTestElectron',shortCircuit:true};
     if (specifier === './api.ts' && context.parentURL?.endsWith('/electron/main.ts')) return {url:'data:text/javascript,export const {startWebSocket,stopWebSocket,configureFilter}=globalThis.__lotteryTestApi',shortCircuit:true};
     return next(specifier,context);

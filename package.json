@@ -6,7 +6,7 @@
   },
   "license": "MIT",
   "description": "抽奖姬：支持弹幕抽奖、顺序排队、粉丝牌筛选和直播小窗。开发者：想吃金丝虾球。",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
-    "build:win": "tsc && vite build && node scripts/prepare-release.mjs && electron-builder --win zip --x64 --publish=never"
+    "build:win": "tsc && vite build && node scripts/prepare-release.mjs && electron-builder --win nsis zip --x64 --publish=never"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -31,12 +31,14 @@
     "bufferutil": "^4.0.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "electron-updater": "6.6.2",
     "fetch-cookie": "^3.1.0",
     "lucide-react": "^0.487.0",
     "md5": "^2.3.0",
     "node-fetch": "^3.3.2",
     "pako": "^2.1.0",
     "python-struct": "^1.1.3",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^3.3.0",
@@ -45,6 +47,7 @@
     "ws": "^8.18.2"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@typescript-eslint/eslint-plugin": "^8.33.0",
@@ -71,5 +74,13 @@
       "bufferutil",
       "utf-8-validate"
     ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/csudmj/bili-danmaku-lottery.git"
+  },
+  "homepage": "https://github.com/csudmj/bili-danmaku-lottery",
+  "bugs": {
+    "url": "https://github.com/csudmj/bili-danmaku-lottery/issues"
   }
 }

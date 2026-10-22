@@ -6,6 +6,8 @@ import path from 'node:path';
 import {LotteryPool} from './lottery.ts';
 import type {LotterySnapshot, ConnectionState, Participant, ActivityMode} from './lottery.ts';
 import {startWebSocket, stopWebSocket, configureFilter} from './api.ts';
+import {setupUpdates} from './updates.ts';
+import {setupDiagnostics, watchWindow} from './diagnostics.ts';
 import type {MedalRule} from './eligibility.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -61,6 +63,7 @@ function createWindow() {
         icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
         webPreferences: {preload: path.join(__dirname, 'preload.mjs'), backgroundThrottling: false},
     });
+    watchWindow(mainWindow);
     mainWindow.setMenuBarVisibility(false);
     mainWindow.on('closed', () => {mainWindow = null; app.quit();});
     mainWindow.webContents.on('did-finish-load', () => {
@@ -258,7 +261,9 @@ export function sendConnectionState(state: ConnectionState, message?: string) {
     broadcast(); if (message) notice(message);
 }
 app.whenReady().then(() => {
+    setupDiagnostics(() => mainWindow, stopCollection);
     createWindow();
+    void setupUpdates(() => mainWindow, () => connection !== 'stopped').catch(() => notice('更新组件初始化失败，请使用启动检查或重新安装'));
     const timer = setInterval(() => {void refreshLogin().catch(() => {});}, 60000);
     timer.unref();
     app.on('before-quit', () => clearInterval(timer));
