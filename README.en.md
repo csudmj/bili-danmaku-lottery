@@ -24,7 +24,7 @@ A desktop tool for Bilibili live interactions: collect keyword-based entries for
 
 ## Download and quick start
 
-1. Open [Releases](https://github.com/csudmj/bili-danmaku-lottery/releases) and install `luckdraw-Setup-1.5.0-x64.exe` for in-app updates. GitHub's automatic Source code downloads are not runnable application packages.
+1. Open [Releases](https://github.com/csudmj/bili-danmaku-lottery/releases) and install `danmakullottery-1.5.0-x64.exe` for in-app updates. GitHub's automatic Source code downloads are not runnable application packages.
 2. Alternatively, download `抽奖姬-Windows-x64-v1.5.0.zip` and extract the entire ZIP to a writable directory and run `抽奖姬.exe`. Keep the adjacent `resources`, `locales`, DLLs, and other files. End users do not need Node.js or Python.
 3. Select **登录 B 站** and sign in yourself on the official webpage opened by the app. This session is separate from other browsers.
 4. Select draw or queue mode, enter a room ID and keyword, and choose the medal requirement.

@@ -24,7 +24,7 @@
 
 ## 下载与开始使用
 
-1. 打开[Releases](https://github.com/csudmj/bili-danmaku-lottery/releases)，推荐下载 `luckdraw-Setup-1.5.0-x64.exe` 并安装；安装版支持程序内更新。GitHub 自动提供的 Source code 是源码，不是可运行软件。
+1. 打开[Releases](https://github.com/csudmj/bili-danmaku-lottery/releases)，推荐下载 `danmakullottery-1.5.0-x64.exe` 并安装；安装版支持程序内更新。GitHub 自动提供的 Source code 是源码，不是可运行软件。
 2. 如选用 `抽奖姬-Windows-x64-v1.5.0.zip` 免安装版，请完整解压到可写目录，双击 `抽奖姬.exe`。保留同目录的 `resources`、`locales`、DLL 等文件；无需安装 Node.js 或 Python。
 3. 点击“登录 B 站”，在软件打开的官方网页自行登录。软件会话与其他浏览器独立。
 4. 选择抽奖或排队，设置房间号、互动词和粉丝牌条件。

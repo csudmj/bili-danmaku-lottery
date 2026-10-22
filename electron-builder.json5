@@ -38,7 +38,7 @@
     "artifactName": "${productName}-Windows-x64-v${version}.${ext}"
   },
   "nsis": {
-    "artifactName": "luckdraw-Setup-${version}-x64.exe",
+    "artifactName": "danmakullottery-${version}-x64.exe",
     "createDesktopShortcut": true,
     "oneClick": false,
     "perMachine": false,
