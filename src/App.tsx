@@ -13,6 +13,8 @@ import {AccountActions,AccountStatus} from './components/Account';
 import {WeightSettings} from './components/WeightSettings';
 import {VideoLottery} from './components/VideoLottery';
 import {History} from './components/History';
+import {OverlayFont} from './components/OverlayFont';
+import {GuardIcon} from './components/GuardIcon';
 import {useListScroll} from './hooks/use-list-scroll';
 import {parseRoom, readRoom, saveRoom} from '../shared/room-preference';
 import {overlayFontScale} from '../shared/overlay-font';
@@ -31,6 +33,7 @@ function Empty({icon, title, text}: {icon: ReactNode; title: string; text?: stri
 function Person({person, index, winner = false, onRemove, onWeight, probability, giftAmount}: {person: Participant; index?: number; winner?: boolean; probability?:string;giftAmount?:number; onRemove?: () => void; onWeight?: () => void}) {
     if(isOverlay)return <div className="person-row overlay-person-row">
         <div className="overlay-person-heading"><span className="overlay-person-number">{String((index ?? 0) + 1).padStart(2, '0')}</span><strong className="overlay-person-name" title={person.name}>{person.name}</strong>
+            {Boolean(person.guardLevel)&&<GuardIcon level={person.guardLevel!}/>}
             {person.medal&&<span className="medal" title={person.medal.name}><span>{person.medal.name}</span><b>{person.medal.level}</b></span>}
         </div>
         <div className="overlay-person-details">
@@ -217,13 +220,13 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
 
     if (isOverlay) return <main className="overlay-shell" style={{...style,'--overlay-font-scale':effectiveFontPercent/100} as CSSProperties}>
         <header className="overlay-titlebar"><span><Sparkles size={13}/>抽奖姬</span><div>
+            <OverlayFont onOpen={()=>setAppearance(false)} value={fontPercent} effective={effectiveFontPercent} onChange={value=>{setFontPercent(value);localStorage.setItem('overlay-font-percent',String(value));}}/>
             <Button title="背景设置" aria-label="背景设置" onClick={() => setAppearance(!appearance)}><ImageIcon size={14}/></Button>
             <Button className={state.overlayPinned ? 'is-pinned' : ''} title={state.overlayPinned ? '取消置顶' : '窗口置顶'} aria-label={state.overlayPinned ? '取消置顶' : '窗口置顶'} onClick={() => command('overlay:pin')}><Pin size={14}/></Button>
             <Button title="最小化小窗" aria-label="最小化小窗" onClick={() => command('overlay:minimize')}><Minus size={15}/></Button>
             <Button title="关闭小窗" aria-label="关闭小窗" onClick={() => command('overlay:close')}><X size={15}/></Button>
         </div></header>
         {appearance && themePanel}
-        <label className="overlay-font-control">字号<input aria-label="小窗字号" type="range" min="85" max="180" step="5" value={fontPercent} onChange={event=>{const value=Number(event.target.value);setFontPercent(value);localStorage.setItem('overlay-font-percent',String(value));}}/><span>{effectiveFontPercent}%{effectiveFontPercent<fontPercent?'（适配窗口）':''}</span></label>
         <section className="overlay-draw-area">
             <div className="overlay-kicker"><span className={`live-dot ${active ? 'on' : ''}`}/>{state.connection === 'connected' ? '正在获取弹幕' : state.connection === 'connecting' ? '正在连接弹幕' : '弹幕收集暂停'}</div>
             {queueMode ? <div className="queue-heading"><ListOrdered size={21}/><strong>{state.giftSort?'按本轮礼物金额排队':state.queueOrderEdited?'当前排队顺序':'按弹幕顺序排队'}</strong><span>{state.participants.length} / {state.queueLimit}</span></div> : <Button tone="gold" className="overlay-draw" disabled={Boolean(busy) || !state.ready || !state.user || count > state.participants.length} onClick={() => draw(count)}><Gift size={20}/>{busy === 'lottery:draw' ? '正在揭晓…' : `抽取 ${count} 位`}<Sparkles size={17}/></Button>}

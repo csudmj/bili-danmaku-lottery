@@ -192,3 +192,12 @@ html,body,#root{min-height:100%;}
 .overlay-shell .overlay-person-row{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0}.overlay-person-heading{flex:1;min-width:calc(8em + 46px);font-size:calc(13px * var(--overlay-font-scale,1));gap:5px}.overlay-person-heading .medal{max-width:90px}.overlay-person-details{flex:0 0 auto;margin-left:auto;gap:6px}.overlay-person-details .person-metric{font-size:calc(12px * var(--overlay-font-scale,1))}.overlay-person-details .remove-person{min-height:26px;min-width:24px}
 
 .overlay-shell{--overlay-list-label-size:11px}.overlay-list-title,.overlay-person-number{font-size:var(--overlay-list-label-size)}.overlay-person-number{flex:0 0 auto;min-width:2ch;color:#8e9db9;font-variant-numeric:tabular-nums}.overlay-person-heading{min-width:calc(8em + 65px)}
+.overlay-guard-icon{width:15px;height:15px;flex:0 0 15px}
+.overlay-person-heading{gap:4px}
+.overlay-person-heading:has(.overlay-guard-icon) .medal{max-width:72px}
+.overlay-font-menu{position:relative;-webkit-app-region:no-drag}
+.overlay-font-popover{position:fixed;right:10px;top:44px;width:252px;max-width:calc(100vw - 20px);padding:14px;border:1px solid #a8b7d64d;border-radius:12px;background:#1a2338;box-shadow:0 10px 35px #0007;z-index:100;color:#dce3f4;text-align:left}
+.font-panel-heading{display:flex;align-items:center;justify-content:space-between;font-size:13px;margin-bottom:12px}.font-panel-heading output{color:#d9bdff;font-variant-numeric:tabular-nums}
+.font-slider-row{display:flex;align-items:center;gap:8px}.font-slider-row input{min-width:0;flex:1;accent-color:#b89cde}
+.overlay-font-popover button{border:1px solid #b8c7e42b;border-radius:6px;background:#ffffff09;color:#dce3f4;min-width:30px;height:29px;font-size:12px;cursor:pointer}.overlay-font-popover button:disabled{opacity:.35;cursor:default}.overlay-font-popover button:focus-visible{outline:2px solid #ceb4ff;outline-offset:2px}
+.font-presets{display:flex;gap:7px;margin-top:12px}.font-presets button{flex:1}.font-presets button[aria-pressed=true]{background:#ae86db33;border-color:#b99bff80;color:#e3cdff}.overlay-font-popover p{font-size:11px;line-height:1.5;color:#aebbd3;margin:10px 0 0}

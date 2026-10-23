@@ -6,7 +6,7 @@
   },
   "license": "MIT",
   "description": "抽奖姬：B站直播抽奖与排队、视频弹幕及评论抽奖。开发者：想吃金丝虾球。",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
