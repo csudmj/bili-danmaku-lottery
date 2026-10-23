@@ -167,7 +167,7 @@ test('main and overlay share draw/pause/reset/resume; retry after failed restart
 });
 
 test('video IPC keeps a separate pool, clears winner rules and preserves history after reset',async()=>{
- globalThis.__lotteryTestElectron.session.defaultSession.fetch=async url=>({ok:true,json:async()=>String(url).includes('/nav')?{code:0,data:{isLogin:true,mid:123,uname:'测试账号'}}:String(url).includes('/view?')?{code:0,data:{title:'自己的投稿',owner:{mid:123},pages:[{cid:2,page:1,part:'P1'}]}}:{code:0,data:{page:{num:1,total:2},result:[{id_str:'1',mid:701,uname:'视频观众',msg:'好运',oid:2},{id_str:'2',mid:702,uname:'另一观众',msg:'其他',oid:2}]}}});
+ globalThis.__lotteryTestElectron.session.defaultSession.fetch=async url=>({ok:true,json:async()=>String(url).includes('/nav')?{code:0,data:{isLogin:true,mid:123,uname:'测试账号'}}:String(url).includes('/view?')?{code:0,data:{title:'自己的投稿',owner:{mid:123},pages:[{cid:2,page:1,part:'P1'}]}}:{code:0,data:{page:{num:1,total:2},result:[{id_str:'1',mid:701,uname:'视频观众',msg:'好运',oid:2,ctime:1700000000},{id_str:'2',mid:702,uname:'另一观众',msg:'其他',oid:2,ctime:1700000000}]}}});
  assert.equal((await call('video:prepare','BV1Na4Q64Eos')).ok,true);
  const rules=await call('weights:personal:get');
  assert.equal((await call('weights:personal:save',{revision:rules.data.revision,entries:[{uid:701,name:'视频观众',weight:3}]})).ok,true);

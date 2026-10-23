@@ -1,15 +1,15 @@
 import {videoBvid,type VideoInfo,type VideoDanmu,type VideoProgress} from '../shared/video.ts';
 export type VideoRequest=(url:string,signal:AbortSignal)=>Promise<unknown>;
 const object=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
-function dataOf(value:unknown){const response=object(value);if(response.code!==0)throw Error(response.code===-101?'B站登录已失效，请重新登录':'B站拒绝读取，请确认是自己的投稿，或稍后重试');return object(response.data);}
+function dataOf(value:unknown){const response=object(value);if(response.code!==0)throw Error(response.code===-101?'B站登录已失效，请重新登录':'B站拒绝读取，请确认视频可访问及登录有效，或稍后重试');return object(response.data);}
 const positive=(v:unknown)=>typeof v==='number'&&Number.isSafeInteger(v)&&v>0;
-export async function loadVideoInfo(value:unknown,ownerUid:number,request:VideoRequest,signal:AbortSignal):Promise<VideoInfo>{
+export async function loadVideoInfo(value:unknown,ownerUid:number,request:VideoRequest,signal:AbortSignal,ownOnly=true):Promise<VideoInfo>{
     const bvid=videoBvid(value),data=dataOf(await request(`https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`,signal));
-    if(!positive(ownerUid)||object(data.owner).mid!==ownerUid)throw Error('V2.1.0 仅支持当前登录账号自己投稿的视频');
+    if(ownOnly&&(!positive(ownerUid)||object(data.owner).mid!==ownerUid))throw Error('视频弹幕仅支持当前登录账号自己投稿的视频');
     if(typeof data.title!=='string'||!Array.isArray(data.pages)||!data.pages.length)throw Error('视频信息不完整，请重试');
     const parts=data.pages.map(value=>{const p=object(value);if(!positive(p.cid)||!positive(p.page)||typeof p.part!=='string')throw Error('视频分P信息异常');return {cid:p.cid as number,page:p.page as number,title:p.part};});
     if(new Set(parts.map(p=>p.cid)).size!==parts.length)throw Error('视频分P信息重复');
-    return {bvid,title:data.title,ownerUid,parts};
+    return {bvid,title:data.title,ownerUid:Number(object(data.owner).mid),aid:positive(data.aid)?data.aid as number:undefined,parts};
 }
 // Contract verified against Bilibili's creator-center frontend (2026-10-22):
 // dmSearch -> data.result / data.page; sender -> row.mid / row.uname; content -> row.msg.
@@ -34,7 +34,7 @@ export async function loadVideoDanmu(info:VideoInfo,cids:number[],request:VideoR
                 if(typeof row.id_str!=='string'||!/^\d+$/.test(row.id_str)||!positive(row.mid)||typeof row.uname!=='string'||!row.uname.trim()||row.uname.length>80||typeof row.msg!=='string'||row.msg.length>10000||Number(row.oid)!==cids[part])throw Error('弹幕缺少可靠的昵称、UID 或分P信息，已停止读取');
                 const key=`${cids[part]}:${row.id_str}`;
                 if(ids.has(key))throw Error('分页中出现重复弹幕，无法确认完整名单，请重新读取');
-                ids.add(key);received++;result.push({id:row.id_str,uid:row.mid as number,name:row.uname,content:row.msg,cid:cids[part]});
+                ids.add(key);received++;result.push({id:row.id_str,uid:row.mid as number,name:row.uname,content:row.msg,cid:cids[part],ctime:typeof row.ctime==='number'?row.ctime:undefined});
             }
             onProgress({part:part+1,parts:cids.length,page,received,total:expected});
             if(result.length>100000)throw Error('本次弹幕超过 100000 条，请选择单个分P');

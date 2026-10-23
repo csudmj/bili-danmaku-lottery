@@ -76,6 +76,7 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
         const saved = Number(localStorage.getItem(isOverlay ? 'overlay-dim' : 'main-dim') || 64);
         return Number.isFinite(saved) ? Math.max(45, Math.min(85, saved)) : 64;
     });
+    useEffect(()=>{if(isOverlay)return;const receive=()=>setDim(Number(localStorage.getItem('main-dim')||64));window.addEventListener('main-dim-changed',receive);return()=>window.removeEventListener('main-dim-changed',receive);},[]);
     const inFlight = useRef(false);
     const commandSequence = useRef(0);
     const feed = useRef<HTMLDivElement>(null);
@@ -120,6 +121,7 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
     }, [notice]);
     useEffect(() => {
         localStorage.setItem(isOverlay ? 'overlay-dim' : 'main-dim', String(dim));
+        if(!isOverlay)window.dispatchEvent(new Event('main-dim-changed'));
     }, [dim]);
     useEffect(() => {if (autoScroll.current && feed.current) feed.current.scrollTop = feed.current.scrollHeight;}, [messages]);
 
@@ -195,9 +197,9 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
         <section className="overlay-draw-area">
             <div className="overlay-kicker"><span className={`live-dot ${active ? 'on' : ''}`}/>{state.connection === 'connected' ? '正在获取弹幕' : state.connection === 'connecting' ? '正在连接弹幕' : '弹幕收集暂停'}</div>
             {queueMode ? <div className="queue-heading"><ListOrdered size={21}/><strong>{state.giftSort?'按本轮礼物金额排队':state.queueOrderEdited?'当前排队顺序':'按弹幕顺序排队'}</strong><span>{state.participants.length} / {state.queueLimit}</span></div> : <Button tone="gold" className="overlay-draw" disabled={Boolean(busy) || !state.ready || !state.user || state.participants.length === 0} onClick={() => draw(1)}><Gift size={20}/>{busy === 'lottery:draw' ? '正在揭晓…' : '抽取一位'}<Sparkles size={17}/></Button>}
-            <Button className="overlay-restart" disabled={Boolean(busy) || !state.user || !state.keyword} onClick={() => command('lottery:restart')}>开始收集弹幕</Button>
+            <Button className="overlay-restart" disabled={Boolean(busy) || !state.user || !state.roomId} onClick={() => command('lottery:restart')}>开始收集弹幕</Button>
             <Button className="overlay-restart" disabled={active ? busy === 'lottery:stop' : Boolean(busy) || !state.ready || !state.user} onClick={() => command(active ? 'lottery:stop' : 'lottery:resume')}>{active ? <Pause size={14}/> : <Play size={14}/>}{active ? '暂停收集' : '继续收集'}</Button>
-            <p className="overlay-word">{state.keyword ? <>发送 <b>{state.keyword}</b> {queueMode ? '加入排队' : '参与抽奖'}</> : '等待主界面设置抽奖'}</p>
+            <p className="overlay-word">{state.keyword ? <>发送 <b>{state.keyword}</b> {queueMode ? '加入排队' : '参与抽奖'}</> : state.ready ? '发言即可参与' : '等待主界面设置抽奖'}</p>
         </section>
         {!queueMode && <section aria-live="polite" className={`overlay-winner ${state.latestWinners.length ? 'has-winner' : ''}`}>
             {state.latestWinners.length ? <><div className="winner-kicker"><Crown size={14}/>恭喜中奖 · 第 {state.drawNumber} 次抽取</div>
@@ -232,12 +234,12 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
                     if(value===null){setNotice('请输入数字房间号，或完整的 live.bilibili.com 直播链接');return;}
                     setRoom(value);if(!saveRoom(localStorage,value))setNotice('房间号可正常使用，但暂时无法保存到本机');
                 }} placeholder="输入房间号或粘贴直播链接"/></label>
-                <label className="field-label">参与互动词<input aria-label="参与互动词" disabled={locked} value={word} onChange={event => setWord(event.target.value)} placeholder="例如：今晚好运" maxLength={100}/><small>弹幕包含互动词，即可匹配</small></label>
+                <label className="field-label">参与互动词<input aria-label="参与互动词" disabled={locked} value={word} onChange={event => setWord(event.target.value)} placeholder="例如：今晚好运" maxLength={100}/><small>留空表示发言即可参与；仍需符合粉丝牌条件</small></label>
                 <fieldset className="rule-options" disabled={locked}><legend>粉丝牌要求</legend>
                     <label className={rule === 'off' ? 'checked' : ''}><input type="radio" name="medal" checked={rule === 'off'} onChange={() => setRule('off')}/><Users size={15}/><span>所有观众<small>不限粉丝牌</small></span><i>{rule === 'off' && <Check size={12}/>}</i></label>
                     <label className={rule === 'wear' ? 'checked' : ''}><input type="radio" name="medal" checked={rule === 'wear'} onChange={() => setRule('wear')}/><ShieldCheck size={15}/><span>本直播间粉丝<small>需佩戴本房间粉丝牌</small></span><i>{rule === 'wear' && <Check size={12}/>}</i></label>
                 </fieldset></div>
-                <div className="settings-actions"><Button tone="blue" disabled={Boolean(busy) || !state.user || !room || !word.trim()} onClick={async () => {if(await command('lottery:start', {roomId: room, keyword: word, medalRule: rule, mode, queueLimit})) setTab('participants');}}>开始收集弹幕</Button>
+                <div className="settings-actions"><Button tone="blue" disabled={Boolean(busy) || !state.user || !room} onClick={async () => {if(await command('lottery:start', {roomId: room, keyword: word, medalRule: rule, mode, queueLimit})) setTab('participants');}}>开始收集弹幕</Button>
                     <p>{!state.user ? '先登录自己的 B 站账号，再开始收集' : '再次开始将保存本轮历史，并开启新一轮'}</p>
                 </div>
                 <Button className="reset-button" disabled={active ? busy === 'lottery:stop' : Boolean(busy) || !state.ready || !state.user} onClick={() => command(active ? 'lottery:stop' : 'lottery:resume')}>{active ? <Pause size={14}/> : <Play size={14}/>}{active ? '暂停收集' : '继续收集'}</Button>

@@ -48,10 +48,11 @@ let personalRevision=0;
 const personalWeightsPath=()=>path.join(app.getPath('userData'),'personal-weights.json');
 let history:HistoryStore|undefined;
 const video=new VideoLottery(async(url,signal)=>{
-    const response=await session.defaultSession.fetch(url,{signal:AbortSignal.any([signal,AbortSignal.timeout(20000)]),headers:{Referer:'https://member.bilibili.com/'}});
+    const response=await session.defaultSession.fetch(url,{signal:AbortSignal.any([signal,AbortSignal.timeout(20000)]),headers:{Referer:url.includes('/dm/search')?'https://member.bilibili.com/':'https://www.bilibili.com/'}});
     if(!response.ok)throw Error(`B站读取失败（HTTP ${response.status}），请稍后重试`);
     return response.json();
-},()=>{if(video.status==='ready')history?.capture('video',video.info?.bvid??'',video.keyword,video.pool.snapshot());mainWindow?.webContents.send('video-state',video.snapshot());});
+},()=>{if(video.status==='ready')captureVideoHistory();mainWindow?.webContents.send('video-state',video.snapshot());});
+function captureVideoHistory(){if(video.info&&video.status==='ready')history?.capture('video',video.info.bvid,video.keyword,video.pool.snapshot(),true,video.historyDetails());}
 function persistPersonal(entries:PersonalWeight[]){
     if(personalWeightsLoadError)throw Error('专属名单读取失败，请先修复或保存名单后再抽奖');
     personalWeights=savePersonalWeights(personalWeightsPath(),entries);personalRevision++;
@@ -198,14 +199,14 @@ handle('login:open', (_event, room) => openRoomPage(room), false);
 handle('login:refresh', () => refreshLogin(), false);
 handle('history:get',()=>history?.list()??{rounds:[],error:''},false);
 handle('video:get',()=>video.snapshot(),false);
-handle('video:prepare',async(_event,value)=>{if(!await refreshLogin())throw Error('请先登录投稿账号');return video.prepare(value,uid);},false);
-handle('video:collect',async(_event,value)=>{if(!await refreshLogin())throw Error('请先登录投稿账号');await video.collect(value,uid,()=>personalWeights);},false);
+handle('video:prepare',async(_event,value)=>{if(!await refreshLogin())throw Error('请先登录 B站账号');return video.prepare(value,uid);},false);
+handle('video:collect',async(_event,value)=>{if(!await refreshLogin())throw Error('请先登录 B站账号');await video.collect(value,uid,()=>personalWeights);},false);
 handle('video:reset',()=>{history?.finish('video');video.reset();},false);
-handle('video:draw',(_event,value)=>{video.ensureReady(uid);video.pool.setPersonalWeights(personalWeights);const selected=video.pool.draw(value as number,undefined,persistPersonal);history?.capture('video',video.info?.bvid??'',video.keyword,video.pool.snapshot());history?.flush();mainWindow?.webContents.send('video-state',video.snapshot());return selected;},false);
-handle('video:remove',(_event,value)=>{video.ensureReady(uid);video.pool.remove(value as number);history?.capture('video',video.info?.bvid??'',video.keyword,video.pool.snapshot());mainWindow?.webContents.send('video-state',video.snapshot());},false);
-handle('video:weight',(_event,value)=>{video.ensureReady(uid);const v=value as {uid:number;weight:number};video.pool.setWeight(v?.uid,v?.weight);history?.capture('video',video.info?.bvid??'',video.keyword,video.pool.snapshot());mainWindow?.webContents.send('video-state',video.snapshot());},false);
-handle('video:weights:rules',(_event,value)=>{const v=value as {rules:import('./lottery.ts').WeightRules};video.pool.setPersonalWeights(personalWeights);video.pool.setWeightRules(v?.rules,true);history?.capture('video',video.info?.bvid??'',video.keyword,video.pool.snapshot());mainWindow?.webContents.send('video-state',video.snapshot());},false);
-handle('video:weights:reset',()=>{video.pool.resetWeights();history?.capture('video',video.info?.bvid??'',video.keyword,video.pool.snapshot());mainWindow?.webContents.send('video-state',video.snapshot());},false);
+handle('video:draw',async(_event,value)=>{video.ensureReady(uid);await video.refreshForDraw(uid,()=>personalWeights);video.pool.setPersonalWeights(personalWeights);const selected=video.pool.draw(value as number,undefined,persistPersonal);captureVideoHistory();history?.flush();mainWindow?.webContents.send('video-state',video.snapshot());return selected;},false);
+handle('video:remove',(_event,value)=>{video.ensureReady(uid);video.pool.remove(value as number);captureVideoHistory();mainWindow?.webContents.send('video-state',video.snapshot());},false);
+handle('video:weight',(_event,value)=>{video.ensureReady(uid);const v=value as {uid:number;weight:number};video.pool.setWeight(v?.uid,v?.weight);captureVideoHistory();mainWindow?.webContents.send('video-state',video.snapshot());},false);
+handle('video:weights:rules',(_event,value)=>{const v=value as {rules:import('./lottery.ts').WeightRules};video.pool.setPersonalWeights(personalWeights);video.pool.setWeightRules(v?.rules,true);captureVideoHistory();mainWindow?.webContents.send('video-state',video.snapshot());},false);
+handle('video:weights:reset',()=>{video.pool.resetWeights();captureVideoHistory();mainWindow?.webContents.send('video-state',video.snapshot());},false);
 handle('video:copy',()=>clipboard.writeText(video.pool.snapshot().winners.map(p=>`${p.name}(${p.uid})`).join('\n')),false);
 const backgroundPath = () => path.join(app.getPath('userData'), 'custom-background.png');
 async function getBackground() {
@@ -235,7 +236,7 @@ handle('background:select', async event => {
 handle('background:reset', async () => {await rm(backgroundPath(),{force:true}); await publishBackground();});
 async function startRound(value: unknown, newRound = false) {
     const config = value as {roomId?: string; keyword?: string; medalRule?: MedalRule; mode?: ActivityMode; queueLimit?: number};
-    if (!config || typeof config.roomId !== 'string' || !/^\d+$/.test(config.roomId) || typeof config.keyword !== 'string' || !config.keyword.trim() || !['off', 'wear'].includes(config.medalRule ?? '')) throw new Error('请填写直播间、互动词和参与条件');
+    if (!config || typeof config.roomId !== 'string' || !/^\d+$/.test(config.roomId) || typeof config.keyword !== 'string' || config.keyword.length > 100 || !['off', 'wear'].includes(config.medalRule ?? '')) throw new Error('请填写直播间和参与条件');
     if (connection === 'connecting' || (!newRound && connection !== 'stopped')) throw new Error('正在收集或连接中');
     const mode = config.mode ?? pool.snapshot().mode;
     const queueLimit = config.queueLimit ?? pool.snapshot().queueLimit;
@@ -251,7 +252,7 @@ async function startRound(value: unknown, newRound = false) {
             history?.finish('live'); pool.reset(); pool.configure(mode, queueLimit); ready = false; autoOpened = false;
             mainWindow?.webContents.send('messages-reset');
         }
-        roomId = config.roomId; keyword = config.keyword; medalRule = config.medalRule!;
+        roomId = config.roomId; keyword = config.keyword.trim(); medalRule = config.medalRule!;
         configureFilter(keyword, medalRule); broadcast(); await startWebSocket(roomId);
     } catch (error) {
         if (request !== startRequest) return;
@@ -260,12 +261,12 @@ async function startRound(value: unknown, newRound = false) {
 }
 handle('lottery:start', (_event, value) => startRound(value, true), false);
 handle('lottery:restart', async () => {
-    if (!user || !keyword) throw new Error('请先在主界面设置并开始本轮抽奖');
+    if (!user || !roomId) throw new Error('请先在主界面设置并开始本轮抽奖');
     const {mode, queueLimit} = pool.snapshot();
     await startRound({roomId, keyword, medalRule, mode, queueLimit}, true);
 });
 handle('lottery:resume', async () => {
-    if (!ready || !keyword) throw new Error('请先开始一轮收集');
+    if (!ready || !roomId) throw new Error('请先开始一轮收集');
     const {mode, queueLimit} = pool.snapshot();
     await startRound({roomId, keyword, medalRule, mode, queueLimit});
 });

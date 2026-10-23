@@ -13,12 +13,12 @@ export function About() {
         window.ipcRenderer.on('update-state',receive);
         // Main-process startup registers the updater asynchronously.
         let attempts=0;
-        const load=async()=>{try{const result=await window.ipcRenderer.invoke('app:info');if(alive && result.ok){setVersion(result.data.version);setUpdate(result.data.update);return;}}catch{}if(alive && ++attempts<5)timer=setTimeout(load,1500);};
+        const load=async()=>{try{const result=await window.ipcRenderer.invoke('app:info');if(alive && result.ok){setVersion(result.data.version);setUpdate(result.data.update);return;}}catch{/* Retry until the main process registers IPC. */}if(alive && ++attempts<5)timer=setTimeout(load,1500);else if(alive)setError('更新服务暂未就绪，请重新打开关于页面重试。');};
         let timer:ReturnType<typeof setTimeout>;void load();
         return()=>{alive=false;clearTimeout(timer);window.ipcRenderer.removeListener('update-state',receive);};
-    },[]);
+    },[open]);
     const act=async(channel:string,value?:string)=>{
-        setError('');try{const result=await window.ipcRenderer.invoke(channel,value);if(!result.ok)setError(result.message||'操作失败');}catch{setError('暂时无法执行此操作，请稍后重试');}
+        setError('');try{const result=await window.ipcRenderer.invoke(channel,value);if(!result.ok)setError(result.message||'操作失败');else if(channel.startsWith('update:')&&result.data?.status)setUpdate(result.data);}catch{setError('暂时无法执行此操作，请稍后重试');}
     };
     const busy=['checking','downloading'].includes(update.status);
     const hint:Record<UpdateState['status'],string>={idle:'启动后自动检查，也可手动检查',checking:'正在检查 GitHub 正式版本…',available:`发现新版本 ${update.version}`,current:'当前已是最新正式版',downloading:`正在下载 ${Math.round(update.percent||0)}%`,downloaded:`${update.version} 已下载，等待安装`,error:'更新检查或下载未完成',unsupported:'当前为免安装版或开发环境'};
@@ -26,10 +26,10 @@ export function About() {
         {open && <div className="modal-scrim"><section className="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
             <div className="about-heading"><h2 id="about-title">关于抽奖姬</h2><button className="action" aria-label="关闭关于" onClick={()=>setOpen(false)}><X size={18}/></button></div>
             <p>开发者：<strong>{PROJECT.developer}</strong> · v{version||'读取中'}</p>
-            <p>面向 B 站直播的弹幕抽奖、顺序排队与直播展示工具。</p>
+            <p>支持 B 站直播抽奖、排队，以及视频弹幕和评论抽奖。</p>
             <div className="about-project">{qr && <img src={qr} alt="GitHub 仓库链接二维码"/>}<div><strong>项目主页</strong><button className="repo-link" onClick={()=>act('app:link','repository')}>{PROJECT.url}</button><p>扫码或点击链接，欢迎提交 Issue 和 PR。</p><div className="about-links">{(['repository','issues','pulls'] as const).map((key,i)=><button className="action quiet" key={key} onClick={()=>act('app:link',key)}><ExternalLink size={13}/>{['GitHub','Issues','PR'][i]}</button>)}</div></div></div>
             <div className="update-box"><strong>{hint[update.status]}</strong>{update.message && <p>{update.message}</p>}{update.status==='downloading' && <progress max="100" value={update.percent||0}/>}
-                <div className="about-links"><button className="action blue" disabled={busy||update.status==='unsupported'||update.status==='downloaded'} onClick={()=>act('update:check')}><RefreshCw size={14}/>检查更新</button>
+                <div className="about-links"><button className="action blue" disabled={busy||update.status==='unsupported'||update.status==='downloaded'} onClick={()=>act('update:check')}><RefreshCw size={14}/>{update.status==='checking'?'正在检查…':update.status==='downloading'?'正在下载…':update.status==='downloaded'?'等待安装':'检查更新'}</button>
                     {update.status==='available' && <button className="action gold" onClick={()=>act('update:download')}><Download size={14}/>下载更新</button>}
                     {update.status==='downloaded' && <button className="action gold" onClick={()=>act('update:install')}>安装并重启</button>}
                     <button className="action quiet" onClick={()=>act('app:link','releases')}>打开下载页</button></div>

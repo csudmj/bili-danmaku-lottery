@@ -4,7 +4,7 @@ import {loadVideoInfo,loadVideoDanmu} from '../electron/video-source.ts';
 import {VideoLottery} from '../electron/video-lottery.ts';
 import {videoBvid} from '../shared/video.ts';
 const info={bvid:'BV1Na4Q64Eos',title:'测试视频',ownerUid:1,parts:[{cid:2,page:1,title:'P1'},{cid:3,page:2,title:'P2'}]};
-const row=(id,uid=1,cid=2)=>({id_str:String(id),mid:uid,uname:'观众'+uid,msg:'关键词',oid:cid});
+const row=(id,uid=1,cid=2)=>({id_str:String(id),mid:uid,uname:'观众'+uid,msg:'关键词',oid:cid,ctime:1700000000});
 const payload=(rows,total=rows.length,num=1)=>({code:0,data:{result:rows,page:{total,num}}});
 const signal=()=>new AbortController().signal;
 test('video identity requires exact Bilibili URL and owning UID',async()=>{

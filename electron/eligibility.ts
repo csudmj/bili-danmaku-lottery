@@ -35,7 +35,7 @@ export function parseMedal(info: unknown): FanMedal | null {
 
 export function isEligible(content: string, keyword: string, medal: FanMedal | null,
                            rule: MedalRule, anchorUid: number): boolean {
-    if (!keyword.trim() || !content.includes(keyword)) return false;
+    if (!content.trim() || (keyword.trim() && !content.includes(keyword.trim()))) return false;
     if (rule === 'off') return true;
     if (!medal || anchorUid <= 0 || medal.anchorUid !== anchorUid) return false;
     return rule === 'wear';

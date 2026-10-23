@@ -1,0 +1,9 @@
+import {useEffect,useState} from 'react';
+import {Image,RotateCcw,Moon} from 'lucide-react';
+export function VideoBackground(){
+ const [open,setOpen]=useState(false),[background,setBackground]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [dim,setDim]=useState(()=>Number(localStorage.getItem('main-dim')||64));
+ useEffect(()=>{const receive=(_e:unknown,v:string)=>setBackground(v);const shade=()=>setDim(Number(localStorage.getItem('main-dim')||64));window.ipcRenderer.on('background-changed',receive);window.addEventListener('main-dim-changed',shade);window.ipcRenderer.invoke('background:get').then(r=>{if(r.ok)setBackground(r.data||'');}).catch(()=>setError('背景信息读取失败'));return()=>{window.ipcRenderer.removeListener('background-changed',receive);window.removeEventListener('main-dim-changed',shade);};},[]);
+ async function action(channel:string){setBusy(true);setError('');try{const r=await window.ipcRenderer.invoke(channel);if(!r.ok)setError(r.message);}catch{setError('背景设置失败，请重试');}finally{setBusy(false);}}
+ return <><button className="action quiet" onClick={()=>setOpen(!open)}><Image size={16}/>背景</button>{open&&<div className="appearance-panel"><strong>背景设置</strong><div className="background-actions"><button className="action blue" disabled={busy} onClick={()=>void action('background:select')}><Image size={16}/>选择照片</button><button className="action quiet" disabled={busy||!background} onClick={()=>void action('background:reset')}><RotateCcw size={14}/>恢复默认</button></div><label className="dim-label"><span><Moon size={13}/>背景压暗 <b>{dim}%</b></span><input aria-label="视频背景压暗程度" type="range" min="45" max="85" value={dim} onChange={e=>{const value=Number(e.target.value);setDim(value);localStorage.setItem('main-dim',String(value));window.dispatchEvent(new Event('main-dim-changed'));}}/></label>{error&&<p role="alert">{error}</p>}</div>}</>;
+}

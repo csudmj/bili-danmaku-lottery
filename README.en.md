@@ -1,21 +1,25 @@
 # 抽奖姬
 
-**Developer: 想吃金丝虾球** · Windows 10/11 x64 · Version 2.1.0
+**Developer: 想吃金丝虾球** · Windows 10/11 x64 · Version 2.2.0
 
 [简体中文](README.md) | [English](README.en.md)
 
-> V2.1.0 adds draws from your own uploads using creator-center sender IDs, a local history of 20 activities per module, and a single top-level folder in portable ZIPs. Native launch, account switching, real video import/draw, and history persistence were verified. Live paid-gift traffic and the published update path still require field verification. Video parts reporting 1,000 or more messages are blocked to avoid truncated entry pools. See [CHANGELOG](CHANGELOG.md).
+> V2.2.0 adds public-video comment draws, replies under a selected root comment, publication-time filters, and blank-keyword participation. See [CHANGELOG](CHANGELOG.md).
 
 
 A desktop tool for Bilibili live interactions: collect keyword-based entries for a random draw or a first-come queue, and display participants and winners in a compact portrait window.
 
 The room field starts empty and remembers your last entry locally. Paste a full Bilibili live-room URL or erase the room field to clear the saved value. Collection never starts automatically.
 
+Comments can come from accessible public videos. Creator-center danmu still requires your own upload. Both use real sender UIDs and shared personal weights. A selected thread excludes the parent comment itself. Failed or incomplete retrieval never commits a partial entry pool. With an empty end time, the draw waits for a fresh read and preserves manual removals and existing weights.
+
 ## Features
 
 | Feature | Behavior |
 | --- | --- |
-| Keyword draws | Substring matching, UID deduplication, and multiple winners per draw |
+| Keyword draws | Blank means any nonempty message; otherwise substring matching. UID deduplication and multiple winners |
+| Video comments | Root comments by default; optionally include replies or draw only replies under a specified root ID |
+| Time filters | Both video sources support inclusive local-time bounds; an empty end refreshes the list at each draw click |
 | Fan medal filter | Allow everyone or require a medal belonging to the current room's streamer; no separate lit-status check |
 | Ordered queue | Order eligible messages by arrival at the application; configurable waiting capacity |
 | Manual removal | Remove pending participants from either the main window or portrait window |
@@ -31,8 +35,8 @@ The room field starts empty and remembers your last entry locally. Paste a full 
 
 ## Download and quick start
 
-1. Open [Releases](https://github.com/csudmj/bili-danmaku-lottery/releases) and install `danmakullottery-2.1.0-x64.exe` for in-app updates. GitHub's automatic Source code downloads are not runnable application packages.
-2. Alternatively, download `danmakullottery-Windows-x64-v2.1.0.zip` and extract the entire ZIP to a writable directory and run `抽奖姬.exe`. Keep the adjacent `resources`, `locales`, DLLs, and other files. End users do not need Node.js or Python.
+1. Open [Releases](https://github.com/csudmj/bili-danmaku-lottery/releases) and install `danmakullottery-2.2.0-x64.exe` for in-app updates. GitHub's automatic Source code downloads are not runnable application packages.
+2. Alternatively, download `danmakullottery-Windows-x64-v2.2.0.zip` and extract the entire ZIP to a writable directory and run `抽奖姬.exe`. Keep the adjacent `resources`, `locales`, DLLs, and other files. End users do not need Node.js or Python.
 3. Select **登录 B 站** and sign in yourself on the official webpage opened by the app. This session is separate from other browsers.
 4. Select draw or queue mode, enter a room ID and keyword, and choose the medal requirement.
 5. Select **开始收集弹幕**. Wait for **正在获取弹幕** before asking viewers to enter. The portrait window opens after connection succeeds.

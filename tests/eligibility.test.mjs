@@ -13,7 +13,7 @@ test('two modes check medal presence and anchor regardless of light status', () 
         ['off', 'wear'].forEach((rule, i) => {
             assert.equal(isEligible('我要抽奖', '抽奖', medal, rule, 99), expected[i]);
             assert.equal(isEligible('错词', '抽奖', medal, rule, 99), false);
-            assert.equal(isEligible('抽奖', '', medal, rule, 99), false);
+            assert.equal(isEligible('抽奖', '', medal, rule, 99), expected[i]);
         });
     }
 });
