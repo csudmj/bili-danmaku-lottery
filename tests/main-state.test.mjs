@@ -1,5 +1,5 @@
 import {test,after} from 'node:test';
-import {mkdtempSync,mkdirSync,rmSync,readFileSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,rmSync,readFileSync,writeFileSync} from 'node:fs';
 import path from 'node:path';
 const testBase=path.resolve('.build-cache');mkdirSync(testBase,{recursive:true});
 const testFolder=mkdtempSync(path.join(testBase,'bili-danmaku-lottery-main-v2-'));
@@ -22,6 +22,8 @@ globalThis.__lotteryTestElectron = {
     ipcMain:{handle:(channel,handler)=>handlers.set(channel,handler)}, clipboard:{writeText:()=>{}},
     session:{defaultSession:{fetch:async()=>({json:async()=>({code:0,data:{isLogin:true,mid:123,uname:'离线测试账号'}})}),cookies:{get:async()=>[],remove:async()=>{},flushStore:async()=>{}}}}
 };
+globalThis.__lotteryTestElectron.dialog={showOpenDialog:async()=>({canceled:false,filePaths:[path.join(testFolder,'original.png')]})};
+globalThis.__lotteryTestElectron.nativeImage={createFromPath:file=>({isEmpty:()=>false,getSize:()=>({width:10,height:10}),toPNG:()=>readFileSync(file)})};
 let application;
 let failNext = false;
 let pendingStart;
@@ -246,4 +248,15 @@ test('switching clears only Bilibili cookies and closes after fresh sign-in',asy
  account=123;await call('login:refresh');assert.equal(login.destroyed,true);assert.equal((await state()).loginStatus,'authenticated');
  assert.equal((await call('login:open','')).ok,true);const switching=windows.at(-1);assert.equal(switching.destroyed,false);assert.equal(account,0);assert.equal((await state()).user,null);assert.ok(removed.length>=4);assert.ok(removed.every(([url])=>new URL(url).hostname.endsWith('bilibili.com')));
  account=456;await call('login:refresh');assert.equal(switching.destroyed,true);assert.equal((await state()).user.name,'登录测试');
+});
+
+test('background selection persists a local copy after the original photo is removed',async()=>{
+ const original=path.join(testFolder,'original.png'),bytes=Buffer.from('offline image fixture');
+ writeFileSync(original,bytes);
+ assert.equal((await call('background:select')).ok,true);
+ rmSync(original);
+ assert.equal((await call('background:get')).data,`data:image/png;base64,${bytes.toString('base64')}`);
+ assert.deepEqual(readFileSync(path.join(testFolder,'custom-background.png')),bytes);
+ assert.equal((await call('background:reset')).ok,true);
+ assert.equal((await call('background:get')).data,'');
 });

@@ -52,9 +52,9 @@ export function WeightSettings({rules,medalRequired,video=false}:{rules:WeightRu
             {tab==='rules'?<>
                 <p>{video?'默认 1，范围 1–10000，最多两位小数。专属 UID 优先于昵称规则，昵称规则优先于默认权重。':'全部默认 1，范围 1–10000，最多两位小数。大航海身份优先于粉丝牌；专属 UID 优先于昵称规则，昵称规则优先于身份档位。'}</p>
                 <div className="weight-rules-grid">{(Object.keys(labels) as (keyof WeightRules)[]).filter(k=>video?k==='ordinary':k!=='ordinary'||!medalRequired).map(key=><label key={key}>{video?'普通观众':labels[key]}<input aria-label={`${video?'普通观众':labels[key]}默认权重`} type="number" min="1" max="10000" step="0.01" value={draft[key]} onChange={e=>setDraft({...draft,[key]:Number(e.target.value)})}/></label>)}</div>
-                <p>{video?'视频默认权重为 1；专属名单与直播共用，不使用直播间身份档位。':'本直播间舰长、提督、总督分别识别；身份未知时按粉丝牌归类。佩戴其他直播间牌子归入“无本房间粉丝牌”。'}</p>
+                <p>{video?'视频初始默认权重为 1；专属名单与直播共用，不使用直播间身份档位。':'本直播间舰长、提督、总督分别识别；身份未知时按粉丝牌归类。佩戴其他直播间牌子归入“无本房间粉丝牌”。'}</p>
                 <div className="about-links"><button className="action gold" disabled={busy||invalid} onClick={()=>setConfirm('apply')}>应用到全部待抽</button><button className="action quiet" disabled={busy} onClick={()=>setConfirm('reset')}>全部恢复为 1</button></div>
-                <p>默认权重设置在本次运行内保留。重置轮次保留设置，退出程序后恢复 1。</p>
+                <p>默认权重设置自动保存在本机，重置轮次或退出程序后仍保留。</p>
             </>:<>
                 <p>填写 UID 时按 UID 匹配，昵称可辅助识别；UID 留空时按完整昵称匹配，所有同名观众共用该权重。UID 规则优先。名单保存在本机，默认空白，最多 100000 条。</p>
                 <div className="personal-entry"><label>UID（可留空）<input aria-label="专属权重 UID" inputMode="numeric" value={uid} onChange={e=>setUid(e.target.value.replace(/\D/g,''))}/></label><label>昵称<input aria-label="专属权重昵称" value={name} maxLength={80} onChange={e=>setName(e.target.value)}/></label><label>权重<input aria-label="专属名单权重" type="number" min="1" max="10000" step="0.01" value={weight} onChange={e=>setWeight(Number(e.target.value))}/></label></div>

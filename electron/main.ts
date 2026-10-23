@@ -4,6 +4,7 @@ import type {Cookie, IpcMainInvokeEvent} from 'electron';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {LotteryPool} from './lottery.ts';
+import {loadDefaultWeights,applySavedWeights} from './default-weights.ts';
 import type {LotterySnapshot, ConnectionState, Participant, ActivityMode} from './lottery.ts';
 import {startWebSocket, stopWebSocket, configureFilter} from './api.ts';
 import {setupUpdates} from './updates.ts';
@@ -46,6 +47,7 @@ const pool = new LotteryPool();
 let personalWeights:PersonalWeight[]=[];
 let personalWeightsLoadError=false;
 let personalRevision=0;
+const defaultWeightsPath=(source:'live'|'video')=>path.join(app.getPath('userData'),source+'-default-weights.json');
 const personalWeightsPath=()=>path.join(app.getPath('userData'),'personal-weights.json');
 let history:HistoryStore|undefined;
 const video=new VideoLottery(async(url,signal)=>{
@@ -205,8 +207,8 @@ handle('video:reset',()=>{history?.finish('video');video.reset();},false);
 handle('video:draw',async(_event,value)=>{video.ensureReady(uid);await video.refreshForDraw(uid,()=>personalWeights);video.pool.setPersonalWeights(personalWeights);const selected=video.pool.draw(value as number,undefined,persistPersonal);captureVideoHistory();history?.flush();mainWindow?.webContents.send('video-state',video.snapshot());return selected;},false);
 handle('video:remove',(_event,value)=>{video.ensureReady(uid);video.pool.remove(value as number);captureVideoHistory();mainWindow?.webContents.send('video-state',video.snapshot());},false);
 handle('video:weight',(_event,value)=>{video.ensureReady(uid);const v=value as {uid:number;weight:number};video.pool.setWeight(v?.uid,v?.weight);captureVideoHistory();mainWindow?.webContents.send('video-state',video.snapshot());},false);
-handle('video:weights:rules',(_event,value)=>{const v=value as {rules:import('./lottery.ts').WeightRules};video.pool.setPersonalWeights(personalWeights);video.pool.setWeightRules(v?.rules,true);captureVideoHistory();mainWindow?.webContents.send('video-state',video.snapshot());},false);
-handle('video:weights:reset',()=>{video.pool.resetWeights();captureVideoHistory();mainWindow?.webContents.send('video-state',video.snapshot());},false);
+handle('video:weights:rules',(_event,value)=>{const v=value as {rules:import('./lottery.ts').WeightRules};video.pool.setPersonalWeights(personalWeights);applySavedWeights(defaultWeightsPath('video'),video.pool,v?.rules,true);captureVideoHistory();mainWindow?.webContents.send('video-state',video.snapshot());},false);
+handle('video:weights:reset',()=>{applySavedWeights(defaultWeightsPath('video'),video.pool,video.pool.snapshot().weightRules,false,true);captureVideoHistory();mainWindow?.webContents.send('video-state',video.snapshot());},false);
 handle('video:copy',()=>clipboard.writeText(video.pool.snapshot().winners.map(p=>`${p.name}(${p.uid})`).join('\n')),false);
 const backgroundPath = () => path.join(app.getPath('userData'), 'custom-background.png');
 async function getBackground() {
@@ -310,11 +312,11 @@ handle('queue:limit', (_event, value) => {
 handle('weights:rules', (_event,value)=>{
     const input=value as {rules:import('./lottery.ts').WeightRules;applyExisting:boolean};
     if(!input || typeof input.applyExisting!=='boolean')throw new Error('无效的权重设置');
-    pool.setWeightRules(input.rules,input.applyExisting);broadcast();
+    applySavedWeights(defaultWeightsPath('live'),pool,input.rules,input.applyExisting);broadcast();
 },false);
 handle('weights:compensation',(_event,value)=>{pool.setCompensation(value as {enabled:boolean;increment:number});broadcast();},false);
 handle('queue:gift-sort',(_event,value)=>{pool.setGiftSort(value as boolean);broadcast();},false);
-handle('weights:reset',()=>{pool.resetWeights();broadcast();},false);
+handle('weights:reset',()=>{applySavedWeights(defaultWeightsPath('live'),pool,pool.snapshot().weightRules,false,true);broadcast();},false);
 handle('weights:personal:get',()=>({entries:personalWeights,loadError:personalWeightsLoadError,revision:personalRevision}),false);
 handle('weights:personal:save',(_event,value)=>{
     const input=value as {entries:PersonalWeight[];revision:number};
@@ -357,6 +359,9 @@ app.whenReady().then(() => {
     history=new HistoryStore(path.join(app.getPath('userData'),'history.json'));
     setupDiagnostics(() => mainWindow, stopCollection);
     try{personalWeights=loadPersonalWeights(personalWeightsPath());pool.setPersonalWeights(personalWeights);}catch{personalWeightsLoadError=true;}
+    for(const [source,target] of [['live',pool],['video',video.pool]] as const){
+        try{target.setWeightRules(loadDefaultWeights(defaultWeightsPath(source)),false);}catch(error){console.error('读取默认权重失败，保留原文件',error);}
+    }
     createWindow();
     void setupUpdates(() => mainWindow, () => connection !== 'stopped'||video.status==='loading').catch(() => notice('更新组件初始化失败，请使用启动检查或重新安装'));
     const timer = setInterval(() => {void refreshLogin().catch(() => {});}, 60000);
