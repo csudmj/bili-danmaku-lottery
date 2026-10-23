@@ -2,6 +2,7 @@ import {mkdir, readFile, writeFile, cp, rm} from 'node:fs/promises';
 import path from 'node:path';
 import {builtinModules, createRequire} from 'node:module';
 import ts from 'typescript';
+import './prepare-installer.mjs';
 
 const root = process.cwd();
 const staging = path.resolve(root, '.build-cache', 'app');

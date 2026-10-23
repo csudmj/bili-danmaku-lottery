@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 import {execFileSync} from 'node:child_process';
 const root=process.cwd(),pkg=JSON.parse(readFileSync(path.join(root,'package.json'),'utf8'));
 if(!/^\d+\.\d+\.\d+(?:-[\w.]+)?$/.test(pkg.version))throw Error('Invalid version');
-const folder=`danmakullottery-Windows-x64-v${pkg.version}`;
+const folder=`bili-danmaku-lottery-Windows-x64-v${pkg.version}`;
 const staging=path.join(root,'.build-cache','portable');
 const release=path.join(root,'release',`v${pkg.version}`),source=path.join(release,'win-unpacked');
 await stat(path.join(source,'resources','app.asar'));

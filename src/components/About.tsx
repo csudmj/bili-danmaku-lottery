@@ -33,7 +33,7 @@ export function About() {
                     {update.status==='available' && <button className="action gold" onClick={()=>act('update:download')}><Download size={14}/>下载更新</button>}
                     {update.status==='downloaded' && <button className="action gold" onClick={()=>act('update:install')}>安装并重启</button>}
                     <button className="action quiet" onClick={()=>act('app:link','releases')}>打开下载页</button></div>
-                <p>安装版支持自动检查；下载与安装由你确认。安装前请停止收集并保存本轮结果。</p>
+                <p>安装版支持自动检查；下载与安装由你确认。绿色版不支持自动下载并安装更新，请从下载页手动下载。更新前请停止收集并保存本轮结果。</p>
             </div>
             <button className="action quiet" onClick={()=>act('app:diagnostics')}><Wrench size={14}/>导出诊断信息</button><p className="about-error" role="status">{error}</p>
         </section></div>}

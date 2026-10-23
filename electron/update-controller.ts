@@ -15,7 +15,7 @@ export class UpdateController {
  private downloadTimeout:number;
  constructor(port:UpdatePort,changed:(state:UpdateState)=>void,supported:boolean,checkTimeout=45000,downloadTimeout=30*60*1000){
   this.port=port;this.changed=changed;this.checkTimeout=checkTimeout;this.downloadTimeout=downloadTimeout;
-  this.value=supported?{status:'idle'}:{status:'unsupported',message:'免安装版和开发环境不支持自动安装更新，请从下载页获取 Windows 安装包。'};
+  this.value=supported?{status:'idle'}:{status:'unsupported',message:'绿色版（免安装版）不支持自动下载并安装更新。请打开下载页，手动下载新版 ZIP；退出软件后解压并替换原目录中的程序文件。开发环境同样不支持自动更新。'};
   port.on('update-available',info=>{if(this.value.status==='checking')this.set({status:'available',version:info.version});});
   port.on('update-not-available',()=>{if(this.value.status==='checking')this.set({status:'current',message:'当前已是最新正式版'});});
   port.on('download-progress',p=>{if(this.value.status==='downloading')this.set({...this.value,percent:Math.max(0,Math.min(100,Number(p.percent)||0))});});

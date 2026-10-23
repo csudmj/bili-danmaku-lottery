@@ -1,7 +1,7 @@
 // @see - https://www.electron.build/configuration/configuration
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "com.xiangchijinsixiaqiu.luckdraw",
+  "appId": "com.xiangchijinsixiaqiu.bili-danmaku-lottery",
   "asar": true,
   "npmRebuild": false,
   "afterSign": "scripts/after-pack.cjs",
@@ -35,10 +35,11 @@
     ],
     "icon": "public/icon.ico",
     "signAndEditExecutable": true,
-    "artifactName": "danmakullottery-Windows-x64-v${version}.${ext}"
+    "artifactName": "bili-danmaku-lottery-Windows-x64-v${version}.${ext}"
   },
   "nsis": {
-    "artifactName": "danmakullottery-${version}-x64.exe",
+    "include": ".build-cache/nsis/combined-page.nsh",
+    "artifactName": "bili-danmaku-lottery-${version}-x64.exe",
     "createDesktopShortcut": true,
     "oneClick": false,
     "perMachine": false,
