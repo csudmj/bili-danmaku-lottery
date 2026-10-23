@@ -29,6 +29,7 @@ export function weightGroup(person: Participant): keyof WeightRules {
 export interface Danmu extends Participant {content: string}
 export type ConnectionState = 'connecting' | 'connected' | 'stopped';
 export interface LotterySnapshot {
+    drawCount: number;
     giftSort: boolean;
     compensation: {enabled:boolean;increment:number};
     mode: ActivityMode;
@@ -88,6 +89,7 @@ export class LotteryPool {
     private queueOrderEdited = false;
     private personalWeights = new Map<number,PersonalWeight>();
     private nameWeights = new Map<string,PersonalWeight>();
+    private manualWeights = new Set<number>();
     setPersonalWeights(entries: PersonalWeight[]){
         const valid=validatePersonalWeights(entries);
         this.personalWeights=new Map(valid.filter(entry=>entry.uid!==null).map(entry=>[entry.uid!,entry]));
@@ -104,9 +106,9 @@ export class LotteryPool {
             next[key]=weight;
         }
         this.weightRules=next;
-        if(applyExisting)for(const person of this.participants)person.weight=this.defaultWeight(person);
+        if(applyExisting){this.manualWeights.clear();for(const person of this.participants)person.weight=this.defaultWeight(person);}
     }
-    resetWeights(){this.setWeightRules({...DEFAULT_WEIGHTS},false);for(const person of this.participants)person.weight=1;}
+    resetWeights(){this.manualWeights.clear();this.setWeightRules({...DEFAULT_WEIGHTS},false);for(const person of this.participants)person.weight=1;}
     move(uid: number, targetUid: number, placement: 'before'|'after') {
         if(this.giftSort)throw new Error('请先关闭礼物金额排序，再手动调整队列');
         if(this.mode!=='queue')throw new Error('仅排队模式可调整顺序');
@@ -142,6 +144,20 @@ export class LotteryPool {
         const person = this.participants.find(person => person.uid === uid);
         if (!person) throw new Error('该参与者已不在待抽名单中');
         person.weight = weight;
+        this.manualWeights.add(uid);
+    }
+
+    refreshIdentity(incoming: Participant): boolean {
+        const person=this.participants.find(p=>p.uid===incoming.uid);
+        if(!person)return false;
+        const before=JSON.stringify(person),previousGroup=weightGroup(person),previousName=person.name;
+        if(incoming.name)person.name=incoming.name;
+        if(incoming.medal!==undefined)person.medal=structuredClone(incoming.medal);
+        // null means the upstream message did not provide a reliable guard rank.
+        if(incoming.guardLevel!=null)person.guardLevel=incoming.guardLevel;
+        if(incoming.hasRoomMedal!==undefined)person.hasRoomMedal=incoming.hasRoomMedal;
+        if(this.mode==='lottery'&&!this.manualWeights.has(person.uid)&&(previousGroup!==weightGroup(person)||previousName!==person.name))person.weight=this.defaultWeight(person);
+        return before!==JSON.stringify(person);
     }
 
     add(person: Participant): boolean {
@@ -188,6 +204,7 @@ export class LotteryPool {
     }
 
     reset() {
+        this.manualWeights.clear();
         this.giftEvents.clear();
         this.seen.clear();
         this.participants = [];

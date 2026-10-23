@@ -15,10 +15,11 @@ import {VideoLottery} from './components/VideoLottery';
 import {History} from './components/History';
 import {useListScroll} from './hooks/use-list-scroll';
 import {parseRoom, readRoom, saveRoom} from '../shared/room-preference';
+import {overlayFontScale} from '../shared/overlay-font';
 
 const initial: LotterySnapshot = {giftSort:false,compensation:{enabled:false,increment:0.1},weightRules:{captain:1,admiral:1,governor:1,fan:1,ordinary:1},queueOrderEdited:false,mode: 'lottery', queueLimit: 20, removedCount: 0, participants: [], winners: [], latestWinners: [], drawNumber: 0, total: 0,
     roomId: '', keyword: '', medalRule: 'off', connection: 'stopped', user: null, loginStatus: 'checking',
-    overlayOpen: false, overlayPinned: true, ready: false};
+    overlayOpen: false, overlayPinned: true, ready: false, drawCount:1};
 const isOverlay = location.hash === '#overlay';
 
 function Button({children, tone = 'quiet', className = '', ...props}: React.ButtonHTMLAttributes<HTMLButtonElement> & {tone?: string}) {
@@ -28,12 +29,22 @@ function Empty({icon, title, text}: {icon: ReactNode; title: string; text?: stri
     return <div className="empty-state"><span className="empty-icon">{icon}</span><strong>{title}</strong>{text && <p>{text}</p>}</div>;
 }
 function Person({person, index, winner = false, onRemove, onWeight, probability, giftAmount}: {person: Participant; index?: number; winner?: boolean; probability?:string;giftAmount?:number; onRemove?: () => void; onWeight?: () => void}) {
+    if(isOverlay)return <div className="person-row overlay-person-row">
+        <div className="overlay-person-heading"><span className="overlay-person-number">{String((index ?? 0) + 1).padStart(2, '0')}</span><strong className="overlay-person-name" title={person.name}>{person.name}</strong>
+            {person.medal&&<span className="medal" title={person.medal.name}><span>{person.medal.name}</span><b>{person.medal.level}</b></span>}
+        </div>
+        <div className="overlay-person-details">
+            {probability&&<span className="person-metric">{probability}<small>中奖率</small></span>}
+            {giftAmount!==undefined&&<span className="person-metric">¥{(giftAmount/1000).toFixed(3).replace(/0$/,'')}<small>本轮礼物</small></span>}
+            {onRemove&&<Button className="remove-person" title={`移除 ${person.name}`} aria-label={`移除 ${person.name}`} onClick={onRemove}><UserMinus size={14}/></Button>}
+        </div>
+    </div>;
     return <div className={`person-row ${winner ? 'person-winner' : ''}`}>
         <span className="person-number">{winner ? <Crown size={16}/> : String((index ?? 0) + 1).padStart(2, '0')}</span>
         <div className="person-info"><strong title={person.name}>{person.name}</strong><small>UID {person.uid}</small></div>
-        {person.guardLevel ? <span className="guard-label">{({1:'总督',2:'提督',3:'舰长'} as Record<number,string>)[person.guardLevel]}</span> : null}
-        {person.medal && <span className="medal" title={person.medal.name}><ShieldCheck size={11}/>{person.medal.name}<b>{person.medal.level}</b></span>}
-        {probability && <span className="person-metric" title="下一位中奖概率；多名抽取会逐次重新计算">{probability}<small>下一位中奖</small></span>}
+        {(person.guardLevel || person.medal) ? <span className="person-badges">{person.guardLevel ? <span className="guard-label">{({1:'总督',2:'提督',3:'舰长'} as Record<number,string>)[person.guardLevel]}</span> : null}
+        {person.medal && <span className="medal" title={person.medal.name}><ShieldCheck size={11}/>{person.medal.name}<b>{person.medal.level}</b></span>}</span> : null}
+        {probability && <span className="person-metric" title="下一位中奖概率；多名抽取会逐次重新计算">{probability}<small>中奖率</small></span>}
         {giftAmount!==undefined && <span className="person-metric">¥{(giftAmount/1000).toFixed(3).replace(/0$/,'')}<small>本轮礼物</small></span>}
         {onWeight && <Button className="weight-button" title="修改抽奖权重" onClick={onWeight}><SlidersHorizontal size={12}/>{person.weight ?? 1}</Button>}
         {onRemove ? <Button className="remove-person" title={`移除 ${person.name}`} aria-label={`移除 ${person.name}`} onClick={onRemove}><UserMinus size={14}/></Button> : !winner && <Check className="admitted-check" size={14}/>}
@@ -54,7 +65,18 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
     const [removeTarget, setRemoveTarget] = useState<Participant | null>(null);
     const [weightTarget, setWeightTarget] = useState<Participant | null>(null);
     const [weightDraft, setWeightDraft] = useState(1);
-    const [count, setCount] = useState(1);
+    const count=state.drawCount;
+    const [fontPercent,setFontPercent]=useState(()=>{const value=Number(localStorage.getItem('overlay-font-percent')||100);return Number.isFinite(value)?Math.max(85,Math.min(180,value)):100;});
+    const [viewport,setViewport]=useState(()=>({width:innerWidth,height:innerHeight}));
+    useEffect(()=>{if(!isOverlay)return;const resize=()=>setViewport({width:innerWidth,height:innerHeight});window.addEventListener('resize',resize);return()=>window.removeEventListener('resize',resize);},[]);
+    const effectiveFontPercent=overlayFontScale(fontPercent,viewport.width,viewport.height);
+    const [hostMessage,setHostMessage]=useState(()=>localStorage.getItem('overlay-host-message')||'');
+    const hostMessageInput=useRef<HTMLTextAreaElement>(null);
+    useEffect(()=>{
+        const input=hostMessageInput.current;if(!input)return;
+        input.style.height='auto';
+        input.style.height=Math.min(Math.max(38,input.scrollHeight),Math.min(140,viewport.height*.16))+'px';
+    },[hostMessage,effectiveFontPercent,viewport]);
     const [busy, setBusy] = useState('');
     const [notice, setNotice] = useState('');
     const advancedDialog = useRef<HTMLDialogElement>(null);
@@ -62,6 +84,8 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
     function openAdvanced() {
         const dialog = advancedDialog.current, button = advancedButton.current;
         if (!dialog || !button) return;
+        setCompensationEnabled(state.compensation.enabled);
+        setIncrement(state.compensation.increment);
         dialog.style.animation = 'none';
         dialog.showModal();
         const from = button.getBoundingClientRect(), to = dialog.getBoundingClientRect();
@@ -83,12 +107,18 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
     const listScroll = useListScroll(isOverlay ? 'overlay-list-scroll' : 'main-list-scroll');
     const autoScroll = useRef(true);
     const active = state.connection !== 'stopped';
+    const [showOverlayProbability,setShowOverlayProbability]=useState(()=>localStorage.getItem('overlay-probability')!=='off');
+    useEffect(()=>{
+        const sync=(event:StorageEvent)=>{if(event.key==='overlay-probability'||event.key===null)setShowOverlayProbability(localStorage.getItem('overlay-probability')!=='off');};
+        window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync);
+    },[]);
+    function toggleOverlayProbability(){const next=!showOverlayProbability;localStorage.setItem('overlay-probability',next?'on':'off');setShowOverlayProbability(next);}
     const locked = active;
     const queueMode = (state.ready || isOverlay ? state.mode : mode) === 'queue';
     const totalWeight=state.participants.reduce((sum,p)=>sum+(p.weight??1),0);
-    const unequal=state.participants.some(p=>(p.weight??1)!==(state.participants[0]?.weight??1));
-    const metrics=(person:Participant)=>queueMode?{giftAmount:state.giftSort?(person.giftAmount??0):undefined}:{probability:unequal?probabilityLabel(person.weight??1,totalWeight):undefined};
+    const metrics=(person:Participant)=>queueMode?{giftAmount:state.giftSort?(person.giftAmount??0):undefined}:{probability:!isOverlay||showOverlayProbability?probabilityLabel(person.weight??1,totalWeight):undefined};
     const [increment,setIncrement]=useState(0.1);
+    const [compensationEnabled,setCompensationEnabled]=useState(false);
     const style = {'--scene': `url("${background || new URL('./art/stage.jpg', location.href).href}")`, '--shade': dim / 100} as CSSProperties;
     useEffect(()=>{onStyleChange?.({'--scene': `url("${background || new URL('./art/stage.jpg', location.href).href}")`, '--shade':dim/100} as CSSProperties);},[background,dim,onStyleChange]);
 
@@ -99,7 +129,7 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
         const onState: Parameters<typeof ipc.on>[1] = (_event, data: LotterySnapshot) => {if (alive) setState(data);};
         const onMessage: Parameters<typeof ipc.on>[1] = (_event, data: Danmu) => setMessages(prev => [...prev.slice(-1999), data]);
         const onNotice: Parameters<typeof ipc.on>[1] = (_event, text: string) => setNotice(text);
-        const onReset = () => {setMessages([]); setCount(1);};
+        const onReset = () => {setMessages([]);};
         const onBackground: Parameters<typeof ipc.on>[1] = (_event, value: string) => setBackground(value);
         ipc.on('background-changed', onBackground);
         ipc.invoke('background:get').then(result => {if (alive && result.ok) setBackground(result.data || '');}).catch(() => {});
@@ -185,25 +215,24 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
         }}>{removeTarget ? '确认移除' : '保存权重'}</Button></div>
     </section></div>;
 
-    if (isOverlay) return <main className="overlay-shell" style={style}>
+    if (isOverlay) return <main className="overlay-shell" style={{...style,'--overlay-font-scale':effectiveFontPercent/100} as CSSProperties}>
         <header className="overlay-titlebar"><span><Sparkles size={13}/>抽奖姬</span><div>
             <Button title="背景设置" aria-label="背景设置" onClick={() => setAppearance(!appearance)}><ImageIcon size={14}/></Button>
             <Button className={state.overlayPinned ? 'is-pinned' : ''} title={state.overlayPinned ? '取消置顶' : '窗口置顶'} aria-label={state.overlayPinned ? '取消置顶' : '窗口置顶'} onClick={() => command('overlay:pin')}><Pin size={14}/></Button>
             <Button title="最小化小窗" aria-label="最小化小窗" onClick={() => command('overlay:minimize')}><Minus size={15}/></Button>
             <Button title="关闭小窗" aria-label="关闭小窗" onClick={() => command('overlay:close')}><X size={15}/></Button>
         </div></header>
-        <div className={`overlay-login login-status ${state.loginStatus === 'authenticated' ? 'authenticated' : 'anonymous'}`}>{state.loginStatus === 'authenticated' && state.user ? '已登录' : '未登录'}</div>
         {appearance && themePanel}
+        <label className="overlay-font-control">字号<input aria-label="小窗字号" type="range" min="85" max="180" step="5" value={fontPercent} onChange={event=>{const value=Number(event.target.value);setFontPercent(value);localStorage.setItem('overlay-font-percent',String(value));}}/><span>{effectiveFontPercent}%{effectiveFontPercent<fontPercent?'（适配窗口）':''}</span></label>
         <section className="overlay-draw-area">
             <div className="overlay-kicker"><span className={`live-dot ${active ? 'on' : ''}`}/>{state.connection === 'connected' ? '正在获取弹幕' : state.connection === 'connecting' ? '正在连接弹幕' : '弹幕收集暂停'}</div>
-            {queueMode ? <div className="queue-heading"><ListOrdered size={21}/><strong>{state.giftSort?'按本轮礼物金额排队':state.queueOrderEdited?'当前排队顺序':'按弹幕顺序排队'}</strong><span>{state.participants.length} / {state.queueLimit}</span></div> : <Button tone="gold" className="overlay-draw" disabled={Boolean(busy) || !state.ready || !state.user || state.participants.length === 0} onClick={() => draw(1)}><Gift size={20}/>{busy === 'lottery:draw' ? '正在揭晓…' : '抽取一位'}<Sparkles size={17}/></Button>}
-            <Button tone={active ? 'red' : 'quiet'} className="overlay-restart" disabled={active ? busy === 'lottery:finish' : Boolean(busy) || !state.user || !state.roomId} onClick={() => command(active ? 'lottery:finish' : 'lottery:restart')}>{active ? '停止收集' : '开始收集'}</Button>
-            <Button className="overlay-restart" disabled={active ? busy === 'lottery:stop' : Boolean(busy) || !state.ready || !state.user} onClick={() => command(active ? 'lottery:stop' : 'lottery:resume')}>{active ? <Pause size={14}/> : <Play size={14}/>}{active ? '暂停收集' : '继续收集'}</Button>
+            {queueMode ? <div className="queue-heading"><ListOrdered size={21}/><strong>{state.giftSort?'按本轮礼物金额排队':state.queueOrderEdited?'当前排队顺序':'按弹幕顺序排队'}</strong><span>{state.participants.length} / {state.queueLimit}</span></div> : <Button tone="gold" className="overlay-draw" disabled={Boolean(busy) || !state.ready || !state.user || count > state.participants.length} onClick={() => draw(count)}><Gift size={20}/>{busy === 'lottery:draw' ? '正在揭晓…' : `抽取 ${count} 位`}<Sparkles size={17}/></Button>}
             <p className="overlay-word">{state.keyword ? <>发送 <b>{state.keyword}</b> {queueMode ? '加入排队' : '参与抽奖'}</> : state.ready ? '发言即可参与' : '等待主界面设置抽奖'}</p>
+            <textarea ref={hostMessageInput} className="overlay-host-message" aria-label="主播留言" placeholder="主播留言（点击编辑）" maxLength={300} rows={1} value={hostMessage} onChange={event=>{setHostMessage(event.target.value);localStorage.setItem('overlay-host-message',event.target.value);}}/>
         </section>
-        {!queueMode && <section aria-live="polite" className={`overlay-winner ${state.latestWinners.length ? 'has-winner' : ''}`}>
-            {state.latestWinners.length ? <><div className="winner-kicker"><Crown size={14}/>恭喜中奖 · 第 {state.drawNumber} 次抽取</div>
-                {state.latestWinners.map(person => <div key={person.uid}><strong className="winner-name" title={person.name}>{person.name}</strong><span className="winner-uid">UID {person.uid}</span></div>)}</> : <><Crown size={26}/><strong>尚未抽奖</strong><span>中奖者将在这里置顶展示</span></>}
+        {!queueMode && state.latestWinners.length>0 && <section aria-live="polite" className="overlay-winner has-winner">
+            <div className="winner-kicker"><Crown size={14}/>恭喜中奖 · 第 {state.drawNumber} 次抽取</div>
+            {state.latestWinners.map(person => <div key={person.uid}><strong className="winner-name" title={person.name}>{person.name}</strong></div>)}
         </section>}
         <section className="overlay-list"><div className="list-scroll-controls"><button className="action quiet" aria-pressed={listScroll.enabled} onClick={listScroll.toggle}>{listScroll.enabled ? "自动滚动：开" : "自动滚动：关"}</button></div><div className="overlay-list-title"><span><Users size={15}/>{queueMode ? '当前队列' : '成功参与'}</span><b>{state.participants.length}<small>{queueMode ? ' 人等待' : ' 人待抽'}</small></b></div>
             <div className="overlay-list-scroll" ref={listScroll.ref} onWheel={listScroll.pause} onPointerDown={listScroll.pause}>{state.participants.length ? state.participants.map((person, index) => <Person key={person.uid} person={person} index={index} {...metrics(person)} onRemove={() => setRemoveTarget(person)}/>) : <Empty icon={<Ticket size={24}/>} title={state.total ? '当前名单为空' : '等待第一位参与者'} text={queueMode ? '空位按后续弹幕顺序补入' : state.total ? '点击开始收集，开启下一轮' : '符合条件的弹幕会自动加入'}/>}</div>
@@ -218,7 +247,8 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
             </div>{appearance && themePanel}
         </header>
         <section className="studio-intro"><AccountStatus user={state.user} loginStatus={state.loginStatus}/>
-            <Button tone="purple" disabled={!state.ready || !state.user || Boolean(busy)} onClick={() => command('overlay:open')}><MonitorUp size={18}/>{state.overlayOpen ? '显示直播小窗' : '打开直播小窗'}<ArrowUpRight size={15}/></Button>
+            {!queueMode&&<Button aria-pressed={showOverlayProbability} onClick={toggleOverlayProbability}>小窗中奖概率：{showOverlayProbability?'显示':'隐藏'}</Button>}
+            <Button tone="purple" disabled={Boolean(busy)} onClick={() => command('overlay:open')}><MonitorUp size={18}/>{state.overlayOpen ? '显示直播小窗' : '打开直播小窗'}<ArrowUpRight size={15}/></Button>
         </section>
         <section className="stats-strip"><div><span className="stat-icon blue"><Radio size={20}/></span><span><small>直播间</small><strong>{state.ready ? state.roomId : room || '未设置'}</strong></span><span className={`connection-pill ${state.connection}`}><i/>{state.connection === 'connected' ? '正在获取弹幕' : state.connection === 'connecting' ? '正在连接弹幕' : '弹幕收集暂停'}</span></div>
             <div><span className="stat-icon purple"><Users size={20}/></span><span><small>成功参与</small><strong>{state.total}<em> 人</em></strong></span></div>
@@ -244,7 +274,7 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
                 </div>
                 <Button className="reset-button" disabled={active ? busy === 'lottery:stop' : Boolean(busy) || !state.ready || !state.user} onClick={() => command(active ? 'lottery:stop' : 'lottery:resume')}>{active ? <Pause size={14}/> : <Play size={14}/>}{active ? '暂停收集' : '继续收集'}</Button>
                 <div className="advanced-settings"><button ref={advancedButton} className="action advanced-trigger" onClick={openAdvanced}><SlidersHorizontal size={14}/><span>高级设置</span><small>{(queueMode?state.giftSort:state.compensation.enabled)?'已开启':'未开启'}</small><ChevronRight size={14}/></button></div>
-                {createPortal(<dialog ref={advancedDialog} className="advanced-dialog" aria-labelledby="advanced-title"><header><h2 id="advanced-title">{queueMode?'礼物排序':'未中奖补偿'}</h2><Button aria-label="关闭高级设置" onClick={()=>advancedDialog.current?.close()}><X size={18}/></Button></header>{queueMode ? <div className="feature-setting"><Button className="quiet feature-toggle" aria-pressed={state.giftSort} disabled={Boolean(busy)} onClick={()=>command('queue:gift-sort',!state.giftSort)}>礼物金额排序：{state.giftSort?'开':'关'}</Button><small>仅在开启期间累计入队后的付费礼物；同金额按入队时间。关闭后可手动插队。</small></div> : <div className="feature-setting"><Button className="quiet feature-toggle" aria-pressed={state.compensation.enabled} disabled={Boolean(busy)} onClick={()=>command('weights:compensation',{enabled:!state.compensation.enabled,increment:state.compensation.increment})}>未中奖自动增加权重：{state.compensation.enabled?'开':'关'}</Button><label>每轮增加<input type="number" aria-label="未中奖权重增量" min="0.01" max="10000" step="0.01" value={increment} onChange={e=>setIncrement(Number(e.target.value))}/></label><Button disabled={Boolean(busy)||increment===state.compensation.increment} onClick={()=>command('weights:compensation',{enabled:state.compensation.enabled,increment})}>应用增量</Button><small>每次点击抽奖结算一次，写入专属名单。中奖者的 UID 和同名规则会删除。</small></div>}</dialog>,document.body)}
+                {createPortal(<dialog ref={advancedDialog} className="advanced-dialog" aria-labelledby="advanced-title"><header><h2 id="advanced-title">{queueMode?'礼物排序':'未中奖补偿'}</h2><Button aria-label="关闭高级设置" onClick={()=>advancedDialog.current?.close()}><X size={18}/></Button></header>{queueMode ? <div className="feature-setting"><Button className="quiet feature-toggle" aria-pressed={state.giftSort} disabled={Boolean(busy)} onClick={()=>command('queue:gift-sort',!state.giftSort)}>礼物金额排序：{state.giftSort?'开':'关'}</Button><small>仅在开启期间累计入队后的付费礼物；同金额按入队时间。关闭后可手动插队。</small></div> : <div className="feature-setting"><Button className="quiet feature-toggle" aria-pressed={compensationEnabled} disabled={Boolean(busy)} onClick={()=>setCompensationEnabled(!compensationEnabled)}>未中奖自动增加权重：{compensationEnabled?'开':'关'}</Button><div className="increment-row"><label>每轮增加<input type="number" aria-label="未中奖权重增量" min="0.01" max="10000" step="0.01" value={increment} onChange={e=>setIncrement(Number(e.target.value))}/></label><Button disabled={Boolean(busy)||increment===state.compensation.increment} onClick={()=>command('weights:compensation',{enabled:state.compensation.enabled,increment})}>应用增量</Button></div><Button tone="blue" disabled={Boolean(busy)||compensationEnabled===state.compensation.enabled} onClick={async()=>{if(await command('weights:compensation',{enabled:compensationEnabled,increment:state.compensation.increment}))advancedDialog.current?.close();}}>保存</Button><small>每次点击抽奖结算一次，写入专属名单。中奖者的 UID 和同名规则会删除。</small></div>}</dialog>,document.body)}
             </aside>
             <section className="glass-panel feed-panel"><div className="panel-heading"><span><MessageCircle size={17}/>实时弹幕</span><small><span className={`live-dot ${active ? 'on' : ''}`}/> LIVE</small></div>
                 <div ref={feed} className="panel-scroll feed-scroll" onScroll={() => {if (feed.current) autoScroll.current = feed.current.scrollHeight - feed.current.scrollTop - feed.current.clientHeight < 60;}}>
@@ -255,7 +285,7 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
                 <div className="list-scroll-controls">{!queueMode && <WeightSettings rules={state.weightRules} medalRequired={rule==='wear'}/>}<button className="action quiet" aria-pressed={listScroll.enabled} onClick={listScroll.toggle}>{listScroll.enabled ? "自动滚动：开" : "自动滚动：关"}</button></div><div className="list-tabs"><button className={tab === 'participants' ? 'selected' : ''} onClick={() => setTab('participants')}>{queueMode ? '当前队列' : '待抽观众'} <b>{state.participants.length}</b></button>{!queueMode && <button className={tab === 'winners' ? 'selected' : ''} onClick={() => setTab('winners')}>中奖名单 <b>{state.winners.length}</b></button>}</div>
                 {!queueMode && <section className="winner-banner"><span className="winner-banner-icon"><Crown size={24}/></span><div><small>{state.latestWinners.length ? `第 ${state.drawNumber} 次抽取 · 恭喜中奖` : '本轮中奖者'}</small><strong>{state.latestWinners.length ? state.latestWinners.map(person => person.name).join('、') : '尚未抽奖'}</strong></div><Button disabled={!state.winners.length || Boolean(busy)} onClick={async () => {if (await command('lottery:copy')) setNotice('中奖名单已复制');}}><Copy size={15}/>复制中奖名单</Button></section>}
                 <div className="panel-scroll" ref={listScroll.ref} onWheel={listScroll.pause} onPointerDown={listScroll.pause}>{(tab === 'participants' ? state.participants : state.winners).length ? (tab === 'participants' ? state.participants : state.winners).map((person, index) => renderManagedPerson(person,index)) : <Empty icon={tab === 'participants' ? <Ticket size={30}/> : <Crown size={30}/>} title={tab === 'participants' ? '暂无参与者' : '暂无中奖者'} text={tab === 'participants' ? '符合关键词和粉丝牌条件的观众自动加入' : '点击抽取，迎接本轮中奖者'}/>}</div>
-                {!queueMode && <><div className="draw-controls"><label>抽取<input aria-label="抽取人数" type="number" min="1" max={Math.max(1, state.participants.length)} value={count} onChange={event => setCount(Number(event.target.value))}/>位</label><Button tone="gold" disabled={Boolean(busy) || !state.user || !state.ready || !Number.isInteger(count) || count < 1 || count > state.participants.length} onClick={() => draw(count)}><Gift size={17}/>抽取<ChevronRight size={14}/></Button></div>
+                {!queueMode && <><div className="draw-controls"><label>抽取<input aria-label="抽取人数" type="number" min="1" max={Math.max(1, state.participants.length)} value={count} disabled={Boolean(busy)} onChange={event => {const value=Number(event.target.value);if(Number.isInteger(value)&&value>=1&&value<=10000)void command('lottery:draw-count',value);}}/>位</label><Button tone="gold" disabled={Boolean(busy) || !state.user || !state.ready || !Number.isInteger(count) || count < 1 || count > state.participants.length} onClick={() => draw(count)}><Gift size={17}/>抽取<ChevronRight size={14}/></Button></div>
                 <p className="draw-note">点击抽取将暂停收集 · 已中奖者不重复抽取</p></>}
                 <p className="management-note">{queueMode ? `${state.giftSort?'付费礼物累计金额降序，同额按入队时间':'拖动左侧手柄调整顺序，也可用上下箭头'} · ${state.participants.length}/${state.ready ? state.queueLimit : queueLimit} 人` : 'UID 规则优先于昵称规则和身份档位 · 仍可逐人修改权重'}</p>
             </section>

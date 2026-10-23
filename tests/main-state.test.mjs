@@ -48,6 +48,39 @@ const state = async () => (await call('lottery:get')).data;
 const config = {roomId:'1774682668',keyword:'好运',medalRule:'wear'};
 const add = uid => application.sendMsgToRenderer('add_user',{uid,name:`测试观众${uid}`});
 
+test('startup leaves overlay closed but allows opening it without login or collection',async()=>{
+ assert.equal(windows.length,1);
+ assert.equal((await state()).ready,false);
+ assert.equal((await state()).user,null);
+ assert.equal((await call('overlay:open')).ok,true);
+ assert.equal(windows.length,2);
+ assert.equal((await state()).connection,'stopped');
+ assert.equal((await state()).ready,false);
+ assert.equal((await call('lottery:draw',1,windows[1])).ok,false);
+ assert.equal((await call('overlay:open')).ok,true);assert.equal(windows.length,2);
+});
+
+test('main draw count is shared with overlay, validated and reset for a new round',async()=>{
+ await call('lottery:start',config);add(960);add(961);add(962);
+ assert.equal((await call('lottery:draw-count',2)).ok,true);
+ const overlayState=(await call('lottery:get',undefined,windows[1])).data;
+ assert.equal(overlayState.drawCount,2);
+ assert.equal((await call('lottery:draw',overlayState.drawCount,windows[1])).data.length,2);
+ assert.equal((await call('lottery:draw-count',0)).ok,false);
+ assert.equal((await call('lottery:draw-count',2.5)).ok,false);
+ assert.equal((await call('lottery:draw-count',3,windows[1])).ok,false);
+ await call('lottery:start',config);assert.equal((await state()).drawCount,1);
+ await call('lottery:reset');
+});
+
+test('live repeated entry refreshes shared snapshot and history with current identity',async()=>{
+ await call('lottery:start',config);add(950);
+ application.sendMsgToRenderer('add_user',{uid:950,name:'测试观众950',guardLevel:3,hasRoomMedal:true,medal:{name:'新牌',level:1,anchorUid:99}});
+ assert.equal((await state()).total,1);assert.equal((await state()).participants[0].guardLevel,3);
+ assert.equal((await call('history:get')).data.rounds[0].people[0].guardLevel,3);
+ await call('lottery:reset');
+});
+
 test('explicit stop saves one finished round; later draw stays in it and next start creates a new round', async () => {
  await call('lottery:start',config);add(901);add(902);
  const id=(await call('history:get')).data.rounds[0].id;

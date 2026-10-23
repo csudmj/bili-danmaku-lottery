@@ -69,7 +69,7 @@ export function WeightSettings({rules,medalRequired,video=false}:{rules:WeightRu
                 <p>保存、删除或清空仅影响之后新入选者。若要更新当前待抽者，切换到默认权重设置并选择“应用到全部待抽”。</p>
             </>}
             <p className="about-error" role="alert">{error}</p><p role="status">{info}</p>
-            {confirm!==null&&<div className="weight-confirm" role="alertdialog" aria-label="确认权重操作"><strong>确认操作？</strong><p>{confirm==='apply'?'将重新计算全部待抽者权重，覆盖逐人手动修改；专属名单优先。已中奖者不变。':confirm==='reset'?'默认权重和当前全部待抽者恢复为 1。专属名单保留，之后的新入选者仍可匹配专属权重。':confirm==='clear'?'永久清空本机专属名单。当前待抽者权重不变。':'删除这条专属权重记录？当前待抽者权重不变。'}</p><div className="about-links"><button className="action" disabled={busy} onClick={()=>setConfirm(null)}>取消</button><button className="action rose" disabled={busy} onClick={async()=>{
+            {confirm!==null&&<div className="weight-confirm" role="alertdialog" aria-label="确认权重操作"><strong>确认操作？</strong><p>{confirm==='apply'?'应用后之前设置的手动权重会被覆盖，但不影响专属名单（舰长、粉丝牌权重）':confirm==='reset'?'默认权重和当前全部待抽者恢复为 1。专属名单保留，之后的新入选者仍可匹配专属权重。':confirm==='clear'?'永久清空本机专属名单。当前待抽者权重不变。':'删除这条专属权重记录？当前待抽者权重不变。'}</p><div className="about-links"><button className="action" disabled={busy} onClick={()=>setConfirm(null)}>取消</button><button className="action rose" disabled={busy} onClick={async()=>{
                 if(confirm==='apply')await saveRules();
                 else if(confirm==='reset'){if(await call('weights:reset')){setDraft({captain:1,admiral:1,governor:1,fan:1,ordinary:1});setInfo('默认权重和当前待抽者已恢复为 1。');}}
                 else await saveEntries(confirm==='clear'?[]:entries.filter(p=>entryKey(p)!==confirm));

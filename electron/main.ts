@@ -36,6 +36,7 @@ let medalRule: MedalRule = 'off';
 let ready = false;
 let autoOpened = false;
 let overlayPinned = true;
+let drawCount = 1;
 let startRequest = 0;
 let resettingLogin=false;
 let loginCheck: Promise<boolean> | null = null;
@@ -61,7 +62,7 @@ function persistPersonal(entries:PersonalWeight[]){
 }
 
 function snapshot(): LotterySnapshot {
-    return {...pool.snapshot(), roomId, keyword, medalRule, connection, user, ready, loginStatus,
+    return {...pool.snapshot(), drawCount, roomId, keyword, medalRule, connection, user, ready, loginStatus,
         overlayOpen: Boolean(overlayWindow && !overlayWindow.isDestroyed()), overlayPinned};
 }
 function broadcast() {
@@ -97,11 +98,10 @@ function createWindow() {
     void loadLocal(mainWindow);
 }
 function openOverlay() {
-    if (!ready || !user) throw new Error('请先登录并成功开始收集弹幕');
     if (overlayWindow && !overlayWindow.isDestroyed()) {if (overlayWindow.isMinimized()) overlayWindow.restore(); overlayWindow.show(); overlayWindow.focus(); return;}
     overlayPinned = true;
     const window = new BrowserWindow({
-        title: '抽奖姬 · 直播小窗', width: 360, height: 660, minWidth: 280, minHeight: 440,
+        title: '抽奖姬 · 直播小窗', width: 470, height: 870, minWidth: 280, minHeight: 440,
         maxWidth: 560, frame: false, show: false, alwaysOnTop: true, backgroundColor: '#101526',
         icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
         webPreferences: {preload: path.join(__dirname, 'preload.mjs'), backgroundThrottling: false},
@@ -249,6 +249,7 @@ async function startRound(value: unknown, newRound = false) {
         if (!await refreshLogin()) throw new Error('请先在网页中登录 B 站账号');
         if (request !== startRequest) return;
         if (newRound) {
+            drawCount = 1;
             history?.finish('live'); pool.reset(); pool.configure(mode, queueLimit); ready = false; autoOpened = false;
             mainWindow?.webContents.send('messages-reset');
         }
@@ -273,6 +274,10 @@ handle('lottery:resume', async () => {
 });
 handle('lottery:stop', () => {stopCollection(); history?.flush();});
 handle('lottery:finish', () => {stopCollection(); history?.finish('live', true);});
+handle('lottery:draw-count', (_event,value) => {
+    if(!Number.isInteger(value)||Number(value)<1||Number(value)>10000)throw Error('抽取人数需为 1–10000 的整数');
+    drawCount=Number(value);broadcast();
+},false);
 handle('lottery:draw', (_event, value) => {
     const count = value as number;
     if (pool.snapshot().mode !== 'lottery') throw new Error('排队模式不能抽奖');
@@ -281,6 +286,7 @@ handle('lottery:draw', (_event, value) => {
     stopCollection();pool.setPersonalWeights(personalWeights); const selected = pool.draw(count, undefined, persistPersonal); broadcast();history?.flush(); return selected;
 });
 handle('lottery:reset', () => {
+    drawCount=1;
     stopCollection(); history?.finish('live');pool.reset(); ready = false; autoOpened = false; broadcast();
     mainWindow?.webContents.send('messages-reset');
 }, false);
@@ -334,7 +340,7 @@ export const getBuvid3 = () => buvid3;
 export const getUid = () => uid;
 export function sendMsgToRenderer(channel: string, msg: Participant & {content?: string}) {
     if (channel === 'add_user') {
-        if (connection === 'connected' && user && pool.add(msg)) broadcast();
+        if (connection === 'connected' && user && (pool.refreshIdentity(msg) || pool.add(msg))) broadcast();
     } else if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, msg);
 }
 export function receiveGift(uid:number,amount:number,eventId:string){if(connection==='connected'&&user&&pool.addGift(uid,amount,eventId))broadcast();}
