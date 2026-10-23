@@ -269,8 +269,10 @@ handle('lottery:resume', async () => {
     if (!ready || !roomId) throw new Error('请先开始一轮收集');
     const {mode, queueLimit} = pool.snapshot();
     await startRound({roomId, keyword, medalRule, mode, queueLimit});
+    if (connection !== 'stopped') history?.reopen('live');
 });
 handle('lottery:stop', () => {stopCollection(); history?.flush();});
+handle('lottery:finish', () => {stopCollection(); history?.finish('live', true);});
 handle('lottery:draw', (_event, value) => {
     const count = value as number;
     if (pool.snapshot().mode !== 'lottery') throw new Error('排队模式不能抽奖');

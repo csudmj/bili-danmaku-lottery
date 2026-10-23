@@ -34,7 +34,10 @@ export class HistoryStore {
         if(state.drawNumber&&!round.draws.some(d=>d.number===state.drawNumber))round.draws.push({number:state.drawNumber,at:now,winners:structuredClone(state.latestWinners)});
         this.dirty=true;if(!this.timer){this.timer=setTimeout(()=>{this.timer=undefined;this.flush();},500);this.timer.unref();}
     }
-    finish(source:'live'|'video'){const round=this.rounds.find(r=>r.id===this.active.get(source));if(round){round.endedAt=new Date().toISOString();this.dirty=true;}this.active.delete(source);this.signatures.delete(source);this.flush();}
+    // Retain the live round after explicit stop so later draws/edits update the
+    // same saved record until the user starts a new round.
+    finish(source:'live'|'video',retain=false){const round=this.rounds.find(r=>r.id===this.active.get(source));if(round){round.endedAt??=new Date().toISOString();this.dirty=true;}if(!retain){this.active.delete(source);this.signatures.delete(source);}this.flush();}
+    reopen(source:'live'|'video'){const round=this.rounds.find(r=>r.id===this.active.get(source));if(round?.endedAt){delete round.endedAt;this.dirty=true;this.flush();}}
     flush(){if(this.timer){clearTimeout(this.timer);this.timer=undefined;}if(!this.dirty||this.error)return;
         try{mkdirSync(path.dirname(this.file),{recursive:true});writeFileSync(this.file+'.tmp',JSON.stringify(this.rounds),'utf8');renameSync(this.file+'.tmp',this.file);this.dirty=false;}
         catch{this.error='历史记录保存失败，请检查磁盘空间及个人数据目录权限。当前记录仍保留在内存中。';}

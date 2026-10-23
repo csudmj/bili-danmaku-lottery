@@ -172,3 +172,4 @@ html,body,#root{min-height:100%;}
 .video-setup .mode-tabs .action{flex:1;margin:0;white-space:nowrap;}
 .video-setup input[type=datetime-local]{min-width:0;width:100%;color-scheme:dark;}
 .video-studio .header-actions{position:static;}
+.action.red{color:#fff;background:#c83e4d;border-color:#ef7883;box-shadow:0 5px 20px #a9233233}.action.red:hover:not(:disabled){background:#de4c5c}

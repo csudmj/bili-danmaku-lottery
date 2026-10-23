@@ -48,6 +48,28 @@ const state = async () => (await call('lottery:get')).data;
 const config = {roomId:'1774682668',keyword:'好运',medalRule:'wear'};
 const add = uid => application.sendMsgToRenderer('add_user',{uid,name:`测试观众${uid}`});
 
+test('explicit stop saves one finished round; later draw stays in it and next start creates a new round', async () => {
+ await call('lottery:start',config);add(901);add(902);
+ const id=(await call('history:get')).data.rounds[0].id;
+ assert.equal((await call('lottery:finish',undefined,windows[1])).ok,true);
+ assert.equal((await state()).connection,'stopped');add(903);
+ assert.equal((await state()).total,2);
+ const saved=JSON.parse(readFileSync(path.join(testFolder,'history.json'),'utf8')).find(r=>r.id===id);
+ assert.ok(saved.endedAt);assert.equal(saved.people.length,2);
+ await call('lottery:finish');await call('lottery:draw',1);
+ let records=(await call('history:get')).data.rounds;
+ assert.equal(records[0].id,id);assert.equal(records[0].draws.length,1);
+ await call('lottery:resume');
+ assert.equal((await call('history:get')).data.rounds[0].endedAt,undefined);
+ await call('lottery:finish');await call('lottery:start',config);
+ records=(await call('history:get')).data.rounds;
+ assert.notEqual(records[0].id,id);assert.equal(records.filter(r=>r.id===id).length,1);
+ assert.ok(records.find(r=>r.id===id).endedAt);
+ await call('lottery:finish');
+ assert.ok((await call('history:get')).data.rounds[0].endedAt);
+ await call('lottery:reset');
+});
+
 test('new start archives undrawn and empty rounds; pause/resume retains winners, weights and queue order', async () => {
  await call('lottery:start',{...config,mode:'lottery'});add(801);add(802);
  await call('participant:weight',{uid:801,weight:4});

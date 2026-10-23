@@ -126,7 +126,7 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
     useEffect(() => {if (autoScroll.current && feed.current) feed.current.scrollTop = feed.current.scrollHeight;}, [messages]);
 
     async function command(channel: string, value?: unknown) {
-        if (inFlight.current && !['lottery:stop', 'lottery:reset', 'overlay:close', 'overlay:minimize'].includes(channel)) return;
+        if (inFlight.current && !['lottery:stop', 'lottery:finish', 'lottery:reset', 'overlay:close', 'overlay:minimize'].includes(channel)) return;
         const sequence = ++commandSequence.current;
         inFlight.current = true; setBusy(channel);
         try {
@@ -197,7 +197,7 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
         <section className="overlay-draw-area">
             <div className="overlay-kicker"><span className={`live-dot ${active ? 'on' : ''}`}/>{state.connection === 'connected' ? '正在获取弹幕' : state.connection === 'connecting' ? '正在连接弹幕' : '弹幕收集暂停'}</div>
             {queueMode ? <div className="queue-heading"><ListOrdered size={21}/><strong>{state.giftSort?'按本轮礼物金额排队':state.queueOrderEdited?'当前排队顺序':'按弹幕顺序排队'}</strong><span>{state.participants.length} / {state.queueLimit}</span></div> : <Button tone="gold" className="overlay-draw" disabled={Boolean(busy) || !state.ready || !state.user || state.participants.length === 0} onClick={() => draw(1)}><Gift size={20}/>{busy === 'lottery:draw' ? '正在揭晓…' : '抽取一位'}<Sparkles size={17}/></Button>}
-            <Button className="overlay-restart" disabled={Boolean(busy) || !state.user || !state.roomId} onClick={() => command('lottery:restart')}>开始收集弹幕</Button>
+            <Button tone={active ? 'red' : 'quiet'} className="overlay-restart" disabled={active ? busy === 'lottery:finish' : Boolean(busy) || !state.user || !state.roomId} onClick={() => command(active ? 'lottery:finish' : 'lottery:restart')}>{active ? '停止收集' : '开始收集'}</Button>
             <Button className="overlay-restart" disabled={active ? busy === 'lottery:stop' : Boolean(busy) || !state.ready || !state.user} onClick={() => command(active ? 'lottery:stop' : 'lottery:resume')}>{active ? <Pause size={14}/> : <Play size={14}/>}{active ? '暂停收集' : '继续收集'}</Button>
             <p className="overlay-word">{state.keyword ? <>发送 <b>{state.keyword}</b> {queueMode ? '加入排队' : '参与抽奖'}</> : state.ready ? '发言即可参与' : '等待主界面设置抽奖'}</p>
         </section>
@@ -239,8 +239,8 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
                     <label className={rule === 'off' ? 'checked' : ''}><input type="radio" name="medal" checked={rule === 'off'} onChange={() => setRule('off')}/><Users size={15}/><span>所有观众<small>不限粉丝牌</small></span><i>{rule === 'off' && <Check size={12}/>}</i></label>
                     <label className={rule === 'wear' ? 'checked' : ''}><input type="radio" name="medal" checked={rule === 'wear'} onChange={() => setRule('wear')}/><ShieldCheck size={15}/><span>本直播间粉丝<small>需佩戴本房间粉丝牌</small></span><i>{rule === 'wear' && <Check size={12}/>}</i></label>
                 </fieldset></div>
-                <div className="settings-actions"><Button tone="blue" disabled={Boolean(busy) || !state.user || !room} onClick={async () => {if(await command('lottery:start', {roomId: room, keyword: word, medalRule: rule, mode, queueLimit})) setTab('participants');}}>开始收集弹幕</Button>
-                    <p>{!state.user ? '先登录自己的 B 站账号，再开始收集' : '再次开始将保存本轮历史，并开启新一轮'}</p>
+                <div className="settings-actions"><Button tone={active ? 'red' : 'blue'} disabled={active ? busy === 'lottery:finish' : Boolean(busy) || !state.user || !room} onClick={async () => {if(active) await command('lottery:finish'); else if(await command('lottery:start', {roomId: room, keyword: word, medalRule: rule, mode, queueLimit})) setTab('participants');}}>{active ? '停止收集' : '开始收集'}</Button>
+                    <p>{!state.user ? '先登录自己的 B 站账号，再开始收集' : active ? '停止收集后，本轮将保存到历史记录' : '点击开始收集，开启新一轮'}</p>
                 </div>
                 <Button className="reset-button" disabled={active ? busy === 'lottery:stop' : Boolean(busy) || !state.ready || !state.user} onClick={() => command(active ? 'lottery:stop' : 'lottery:resume')}>{active ? <Pause size={14}/> : <Play size={14}/>}{active ? '暂停收集' : '继续收集'}</Button>
                 <div className="advanced-settings"><button ref={advancedButton} className="action advanced-trigger" onClick={openAdvanced}><SlidersHorizontal size={14}/><span>高级设置</span><small>{(queueMode?state.giftSort:state.compensation.enabled)?'已开启':'未开启'}</small><ChevronRight size={14}/></button></div>
