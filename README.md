@@ -1,6 +1,6 @@
 # 抽奖姬
 
-**开发者：想吃金丝虾球** · Windows 10/11 x64 · 当前版本 2.3.4
+**开发者：想吃金丝虾球** · Windows 10/11 x64 · 当前版本 2.3.5
 
 [简体中文](README.md) | [English](README.en.md)
 
@@ -39,8 +39,8 @@ V2.2.1 统一项目标识为 `bili-danmaku-lottery`，作为后续更新基线�
 
 ## 下载与开始使用
 
-1. 打开[Releases](https://github.com/csudmj/bili-danmaku-lottery/releases)，推荐下载 `bili-danmaku-lottery-2.3.4-x64.exe` 并安装；安装版支持程序内更新。GitHub 自动提供的 Source code 是源码，不是可运行软件。
-2. 如选用 `bili-danmaku-lottery-Windows-x64-v2.3.4.zip` 免安装版，请完整解压到可写目录，双击 `抽奖姬.exe`。保留同目录的 `resources`、`locales`、DLL 等文件；无需安装 Node.js 或 Python。
+1. 打开[Releases](https://github.com/csudmj/bili-danmaku-lottery/releases)，推荐下载 `bili-danmaku-lottery-2.3.5-x64.exe` 并安装；安装版支持程序内更新。GitHub 自动提供的 Source code 是源码，不是可运行软件。
+2. 如选用 `bili-danmaku-lottery-Windows-x64-v2.3.5.zip` 免安装版，请完整解压到可写目录，双击 `抽奖姬.exe`。保留同目录的 `resources`、`locales`、DLL 等文件；无需安装 Node.js 或 Python。
 3. 点击“登录 B 站”，在软件打开的官方网页自行登录。软件会话与其他浏览器独立，确认登录成功后网页自动关闭。
 4. 选择抽奖或排队，设置房间号、互动词和粉丝牌条件。
 5. 点击“开始收集”。状态变为“正在获取弹幕”后，再让观众发送关键词；连接成功自动打开小窗。

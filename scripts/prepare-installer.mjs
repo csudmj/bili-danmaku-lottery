@@ -28,10 +28,11 @@ ui=replace(ui,'\t\t\t!insertmacro setInstallModePerAllUsers\n\t\t\tAbort',`\t\t\
       !endif
 \t\t\tAbort`);
 ui=replace(ui,'\t\t\${NSD_CreateLabel} 0u 110u 280u 50u ""',`    !ifndef BUILD_UNINSTALLER
-      \${NSD_CreateLabel} 0u 76u 300u 12u "安装目标目录："
+      \${NSD_CreateLabel} 0u 76u 300u 12u "安装目标目录（请点击浏览修改）："
       Pop $0
       \${NSD_CreateDirRequest} 0u 91u 238u 14u "$INSTDIR"
       Pop $Combined.Directory
+      SendMessage $Combined.Directory 0x00CF 1 0 ; EM_SETREADONLY; browsing can still update text
       \${NSD_CreateBrowseButton} 244u 90u 56u 16u "浏览…"
       Pop $Combined.Browse
       \${NSD_OnClick} $Combined.Browse Combined.Browse
