@@ -11,11 +11,12 @@ import {EventEmitter} from 'node:events';
 const handlers = new Map();
 const windows = [];
 class Window extends EventEmitter {
-    constructor() {super(); this.webContents = new EventEmitter(); this.webContents.send = () => {}; this.webContents.setWindowOpenHandler=()=>{}; windows.push(this);}
+    constructor(options) {super(); this.options=options; this.webContents = new EventEmitter(); this.webContents.send = () => {}; this.webContents.setWindowOpenHandler=()=>{}; windows.push(this);}
+    getNormalBounds(){return {width:this.options.width,height:this.options.height};}
     setMenuBarVisibility() {} loadFile() {} loadURL() {} showInactive() {} show() {} focus() {}
     minimized = false;
     minimize() {this.minimized = true;} isMinimized() {return this.minimized;} restore() {this.minimized = false;}
-    destroyed=false;isDestroyed() {return this.destroyed;} setAlwaysOnTop() {} close() {this.destroyed=true;this.emit('closed');}
+    destroyed=false;isDestroyed() {return this.destroyed;} setAlwaysOnTop() {} close() {this.emit('close');this.destroyed=true;this.emit('closed');}
 }
 globalThis.__lotteryTestElectron = {
     app:{getPath:()=>testFolder,getVersion:()=> '1.6.0', whenReady:()=>Promise.resolve(), on:()=>{}, quit:()=>{}}, BrowserWindow:Window,
@@ -259,4 +260,12 @@ test('background selection persists a local copy after the original photo is rem
  assert.deepEqual(readFileSync(path.join(testFolder,'custom-background.png')),bytes);
  assert.equal((await call('background:reset')).ok,true);
  assert.equal((await call('background:get')).data,'');
+});
+test('overlay close flushes its last size and reopening restores it',async()=>{
+ await call('overlay:open');const overlay=windows.filter(w=>!w.destroyed&&w.options.title==='抽奖姬 · 直播小窗').at(-1);
+ overlay.options.width=510;overlay.options.height=920;overlay.emit('resize');overlay.minimized=true;overlay.close();
+ assert.deepEqual(JSON.parse(readFileSync(path.join(testFolder,'overlay-size.json'),'utf8')),{width:510,height:920});
+ await call('overlay:open');const reopened=windows.at(-1);
+ assert.equal(reopened.options.width,510);assert.equal(reopened.options.height,920);
+ reopened.close();
 });

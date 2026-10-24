@@ -14,6 +14,7 @@ import {loadPersonalWeights,savePersonalWeights} from './personal-weights.ts';
 import type {PersonalWeight} from './lottery.ts';
 import {VideoLottery} from './video-lottery.ts';
 import {HistoryStore} from './history.ts';
+import {loadOverlaySize,saveOverlaySize} from './overlay-size.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 process.env.APP_ROOT = path.join(__dirname, '..');
@@ -102,13 +103,24 @@ function createWindow() {
 function openOverlay() {
     if (overlayWindow && !overlayWindow.isDestroyed()) {if (overlayWindow.isMinimized()) overlayWindow.restore(); overlayWindow.show(); overlayWindow.focus(); return;}
     overlayPinned = true;
+    const sizeFile=path.join(app.getPath('userData'),'overlay-size.json');
+    const savedSize=loadOverlaySize(sizeFile);
     const window = new BrowserWindow({
-        title: '抽奖姬 · 直播小窗', width: 470, height: 870, minWidth: 280, minHeight: 440,
+        title: '抽奖姬 · 直播小窗', ...savedSize, minWidth: 280, minHeight: 440,
         maxWidth: 560, frame: false, show: false, alwaysOnTop: true, backgroundColor: '#101526',
         icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
         webPreferences: {preload: path.join(__dirname, 'preload.mjs'), backgroundThrottling: false},
     });
     overlayWindow = window; window.setMenuBarVisibility(false);
+    let resizeTimer:ReturnType<typeof setTimeout>|undefined;
+    const saveSize=()=>{
+        if(resizeTimer)clearTimeout(resizeTimer);
+        if(window.isDestroyed())return;
+        try{saveOverlaySize(sizeFile,window.getNormalBounds());}catch(error){console.error('保存小窗尺寸失败',error);notice('小窗尺寸保存失败，请检查本机数据目录是否可写');}
+    };
+    window.on('resize',()=>{if(resizeTimer)clearTimeout(resizeTimer);resizeTimer=setTimeout(saveSize,250);});
+    window.on('close',saveSize);
+    window.on('closed',()=>{if(resizeTimer)clearTimeout(resizeTimer);});
     window.once('ready-to-show', () => {window.showInactive(); broadcast();});
     window.webContents.on('did-finish-load', broadcast);
     window.on('closed', () => {if (overlayWindow === window) overlayWindow = null; broadcast();});
