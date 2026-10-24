@@ -19,7 +19,7 @@ import {useListScroll} from './hooks/use-list-scroll';
 import {parseRoom, readRoom, saveRoom} from '../shared/room-preference';
 import {overlayFontScale} from '../shared/overlay-font';
 
-const initial: LotterySnapshot = {giftSort:false,compensation:{enabled:false,increment:0.1},weightRules:{captain:1,admiral:1,governor:1,fan:1,ordinary:1},queueOrderEdited:false,mode: 'lottery', queueLimit: 20, removedCount: 0, participants: [], winners: [], latestWinners: [], drawNumber: 0, total: 0,
+const initial: LotterySnapshot = {blockRemoved:true,skipped:[],giftSort:false,compensation:{enabled:false,increment:0.1},weightRules:{captain:1,admiral:1,governor:1,fan:1,ordinary:1},queueOrderEdited:false,mode: 'lottery', queueLimit: 20, removedCount: 0, participants: [], winners: [], latestWinners: [], drawNumber: 0, total: 0,
     roomId: '', keyword: '', medalRule: 'off', connection: 'stopped', user: null, loginStatus: 'checking',
     overlayOpen: false, overlayPinned: true, ready: false, drawCount:1};
 const isOverlay = location.hash === '#overlay';
@@ -30,8 +30,8 @@ function Button({children, tone = 'quiet', className = '', ...props}: React.Butt
 function Empty({icon, title, text}: {icon: ReactNode; title: string; text?: string}) {
     return <div className="empty-state"><span className="empty-icon">{icon}</span><strong>{title}</strong>{text && <p>{text}</p>}</div>;
 }
-function Person({person, index, winner = false, onRemove, onWeight, probability, giftAmount}: {person: Participant; index?: number; winner?: boolean; probability?:string;giftAmount?:number; onRemove?: () => void; onWeight?: () => void}) {
-    if(isOverlay)return <div className="person-row overlay-person-row">
+function Person({person, index, winner = false, onRemove, onWeight, probability, giftAmount, onSkip, leader=false}: {onSkip?:()=>void;leader?:boolean;person: Participant; index?: number; winner?: boolean; probability?:string;giftAmount?:number; onRemove?: () => void; onWeight?: () => void}) {
+    if(isOverlay)return <div className={`person-row overlay-person-row ${leader?'queue-leader':''}`} title={leader?'当前队首':undefined}>
         <div className="overlay-person-heading"><span className="overlay-person-number">{String((index ?? 0) + 1).padStart(2, '0')}</span><strong className="overlay-person-name" title={person.name}>{person.name}</strong>
             {Boolean(person.guardLevel)&&<GuardIcon level={person.guardLevel!}/>}
             {person.medal&&<span className="medal" title={person.medal.name}><span>{person.medal.name}</span><b>{person.medal.level}</b></span>}
@@ -39,10 +39,10 @@ function Person({person, index, winner = false, onRemove, onWeight, probability,
         <div className="overlay-person-details">
             {probability&&<span className="person-metric">{probability}<small>中奖率</small></span>}
             {giftAmount!==undefined&&<span className="person-metric">¥{(giftAmount/1000).toFixed(3).replace(/0$/,'')}<small>本轮礼物</small></span>}
-            {onRemove&&<Button className="remove-person" title={`移除 ${person.name}`} aria-label={`移除 ${person.name}`} onClick={onRemove}><UserMinus size={14}/></Button>}
+            {onSkip&&<Button className="skip-person" aria-label={`过号 ${person.name}`} title="过号" onClick={onSkip}>过号</Button>}{onRemove&&<Button className="remove-person" title={`移除 ${person.name}`} aria-label={`移除 ${person.name}`} onClick={onRemove}><UserMinus size={14}/></Button>}
         </div>
     </div>;
-    return <div className={`person-row ${winner ? 'person-winner' : ''}`}>
+    return <div className={`person-row ${leader?'queue-leader':''} ${winner ? 'person-winner' : ''}`}>
         <span className="person-number">{winner ? <Crown size={16}/> : String((index ?? 0) + 1).padStart(2, '0')}</span>
         <div className="person-info"><strong title={person.name}>{person.name}</strong><small>UID {person.uid}</small></div>
         {(person.guardLevel || person.medal) ? <span className="person-badges">{person.guardLevel ? <span className="guard-label">{({1:'总督',2:'提督',3:'舰长'} as Record<number,string>)[person.guardLevel]}</span> : null}
@@ -50,7 +50,7 @@ function Person({person, index, winner = false, onRemove, onWeight, probability,
         {probability && <span className="person-metric" title="下一位中奖概率；多名抽取会逐次重新计算">{probability}<small>中奖率</small></span>}
         {giftAmount!==undefined && <span className="person-metric">¥{(giftAmount/1000).toFixed(3).replace(/0$/,'')}<small>本轮礼物</small></span>}
         {onWeight && <Button className="weight-button" title="修改抽奖权重" onClick={onWeight}><SlidersHorizontal size={12}/>{person.weight ?? 1}</Button>}
-        {onRemove ? <Button className="remove-person" title={`移除 ${person.name}`} aria-label={`移除 ${person.name}`} onClick={onRemove}><UserMinus size={14}/></Button> : !winner && <Check className="admitted-check" size={14}/>}
+        {leader&&<span className="queue-leader-label">当前队首</span>}{onSkip&&<Button className="skip-person" aria-label={`过号 ${person.name}`} onClick={onSkip}>过号</Button>}{onRemove ? <Button className="remove-person" title={`移除 ${person.name}`} aria-label={`移除 ${person.name}`} onClick={onRemove}><UserMinus size={14}/></Button> : !winner && <Check className="admitted-check" size={14}/>}
 
     </div>;
 }
@@ -173,7 +173,7 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
         if (await command('lottery:draw', amount)) setTab('winners');
     }
     function renderManagedPerson(person:Participant,index:number){
-        const row=<Person person={person} index={index} {...(tab==='participants'?metrics(person):{})} winner={tab==='winners'} onRemove={tab==='participants'?()=>setRemoveTarget(person):undefined} onWeight={!queueMode&&tab==='participants'?()=>{setWeightTarget(person);setWeightDraft(person.weight??1);}:undefined}/>;
+        const row=<Person person={person} index={index} leader={queueMode&&tab==='participants'&&index===0} onSkip={queueMode&&tab==='participants'?()=>command('queue:skip',person.uid):undefined} {...(tab==='participants'?metrics(person):{})} winner={tab==='winners'} onRemove={tab==='participants'?()=>setRemoveTarget(person):undefined} onWeight={!queueMode&&tab==='participants'?()=>{setWeightTarget(person);setWeightDraft(person.weight??1);}:undefined}/>;
         if(!queueMode||state.giftSort||tab!=='participants')return <div key={person.uid}>{row}</div>;
         const finish=()=>{draggedUid.current=null;setDropHint('');listScroll.hold(false);};
         function targetAt(x:number,y:number){
@@ -201,6 +201,7 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
             <button disabled={Boolean(busy)||index===state.participants.length-1} aria-label={`下移 ${person.name}`} onClick={()=>command('queue:move',{uid:person.uid,targetUid:state.participants[index+1].uid,placement:'after'})}><ArrowDown size={12}/></button></div>{row}
         </div>;
     }
+    const skippedPanel=queueMode&&(state.skipped??[]).length>0&&<section className="skipped-panel" aria-label="过号名单"><h3>过号 <span>{state.skipped.length} 人</span></h3><div className="skipped-scroll">{state.skipped.map(person=><div className="skipped-person" key={person.uid}><span title={person.name}>{person.name}</span><small>过号</small><Button disabled={Boolean(busy)||state.participants.length>=state.queueLimit} title={state.giftSort?'按礼物金额重新排序':'重新排到队尾'} onClick={()=>command('queue:restore-skipped',person.uid)}>重新排队</Button></div>)}</div></section>;
     const themePanel = <div className="appearance-panel">
         <div className="section-label"><ImageIcon size={14}/>背景照片<Button title="关闭背景设置" aria-label="关闭背景设置" onClick={() => setAppearance(false)}><X size={14}/></Button></div>
         <div className="background-actions"><Button disabled={Boolean(busy)} tone="blue" onClick={() => command('background:select')}><ImageIcon size={16}/>选择照片</Button><Button disabled={!background || Boolean(busy)} onClick={() => command('background:reset')}><RotateCcw size={14}/>恢复默认</Button></div>
@@ -211,7 +212,7 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
     const managementDialog = (removeTarget || weightTarget) && <div className="modal-scrim"><section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="participant-dialog-title">
         <h2 id="participant-dialog-title">{removeTarget ? '移除参与者？' : '设置抽奖权重'}</h2>
         <p className="dialog-person">{(removeTarget || weightTarget)?.name}<br/>UID {(removeTarget || weightTarget)?.uid}</p>
-        {removeTarget ? <p>从当前名单移除，本轮不能再次加入。{queueMode ? '空出的名额可由新的观众报名。' : '此人将不再参与本轮抽奖。'}</p> : <><label className="weight-field">权重<input aria-label="参与者权重" type="number" min="1" max="10000" step="0.01" value={weightDraft} onChange={event => setWeightDraft(Number(event.target.value))}/></label><p>默认 1，可设置为 1–10000，最多两位小数。每次抽取概率按当前剩余参与者的权重比例计算。</p></>}
+        {removeTarget ? <p>从当前名单移除。{state.blockRemoved?'本轮不能再次加入。':'之后可重新发送符合条件的弹幕加入，按新报名处理。'}{queueMode?'空出的名额可由观众报名。':''}</p> : <><label className="weight-field">权重<input aria-label="参与者权重" type="number" min="1" max="10000" step="0.01" value={weightDraft} onChange={event => setWeightDraft(Number(event.target.value))}/></label><p>默认 1，可设置为 1–10000，最多两位小数。每次抽取概率按当前剩余参与者的权重比例计算。</p></>}
         <div><Button onClick={() => {setRemoveTarget(null); setWeightTarget(null);}}>取消</Button><Button tone={removeTarget ? 'rose' : 'blue'} disabled={Boolean(busy) || (!removeTarget && (!validWeight(weightDraft)))} onClick={async () => {
             const ok = removeTarget ? await command('participant:remove', removeTarget.uid) : await command('participant:weight', {uid: weightTarget!.uid, weight: weightDraft});
             if (ok) {setRemoveTarget(null); setWeightTarget(null);}
@@ -238,9 +239,9 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
             {state.latestWinners.map(person => <div key={person.uid}><strong className="winner-name" title={person.name}>{person.name}</strong></div>)}
         </section>}
         <section className="overlay-list"><div className="list-scroll-controls"><button className="action quiet" aria-pressed={listScroll.enabled} onClick={listScroll.toggle}>{listScroll.enabled ? "自动滚动：开" : "自动滚动：关"}</button></div><div className="overlay-list-title"><span><Users size={15}/>{queueMode ? '当前队列' : '成功参与'}</span><b>{state.participants.length}<small>{queueMode ? ' 人等待' : ' 人待抽'}</small></b></div>
-            <div className="overlay-list-scroll" ref={listScroll.ref} onWheel={listScroll.pause} onPointerDown={listScroll.pause}>{state.participants.length ? state.participants.map((person, index) => <Person key={person.uid} person={person} index={index} {...metrics(person)} onRemove={() => setRemoveTarget(person)}/>) : <Empty icon={<Ticket size={24}/>} title={state.total ? '当前名单为空' : '等待第一位参与者'} text={queueMode ? '空位按后续弹幕顺序补入' : state.total ? '点击开始收集，开启下一轮' : '符合条件的弹幕会自动加入'}/>}</div>
+            <div className="overlay-list-scroll" ref={listScroll.ref} onWheel={listScroll.pause} onPointerDown={listScroll.pause}>{state.participants.length ? state.participants.map((person, index) => <Person key={person.uid} person={person} index={index} leader={queueMode&&index===0} onSkip={queueMode?()=>command('queue:skip',person.uid):undefined} {...metrics(person)} onRemove={() => setRemoveTarget(person)}/>) : <Empty icon={<Ticket size={24}/>} title={state.total ? '当前名单为空' : '等待第一位参与者'} text={queueMode ? '空位按后续弹幕顺序补入' : state.total ? '点击开始收集，开启下一轮' : '符合条件的弹幕会自动加入'}/>}</div>
         </section>
-        <footer className="overlay-footer"><ShieldCheck size={12}/>{queueMode&&state.queueOrderEdited?'主持人已调整队列顺序':'同一账号，每轮一次参与'}<span>共 {state.total} 人参与</span></footer>{managementDialog}{toast}
+        {skippedPanel}<footer className="overlay-footer"><ShieldCheck size={12}/>{queueMode&&state.queueOrderEdited?'主持人已调整队列顺序':state.blockRemoved?'移除后本轮不可再加入':'移除后可重新报名'}<span>共 {state.total} 人参与</span></footer>{managementDialog}{toast}
     </main>;
 
     return <main className="studio-shell" style={style}>
@@ -277,7 +278,7 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
                 </div>
                 <Button className="reset-button" disabled={active ? busy === 'lottery:stop' : Boolean(busy) || !state.ready || !state.user} onClick={() => command(active ? 'lottery:stop' : 'lottery:resume')}>{active ? <Pause size={14}/> : <Play size={14}/>}{active ? '暂停收集' : '继续收集'}</Button>
                 <div className="advanced-settings"><button ref={advancedButton} className="action advanced-trigger" onClick={openAdvanced}><SlidersHorizontal size={14}/><span>高级设置</span><small>{(queueMode?state.giftSort:state.compensation.enabled)?'已开启':'未开启'}</small><ChevronRight size={14}/></button></div>
-                {createPortal(<dialog ref={advancedDialog} className="advanced-dialog" aria-labelledby="advanced-title"><header><h2 id="advanced-title">{queueMode?'礼物排序':'未中奖补偿'}</h2><Button aria-label="关闭高级设置" onClick={()=>advancedDialog.current?.close()}><X size={18}/></Button></header>{queueMode ? <div className="feature-setting"><Button className="quiet feature-toggle" aria-pressed={state.giftSort} disabled={Boolean(busy)} onClick={()=>command('queue:gift-sort',!state.giftSort)}>礼物金额排序：{state.giftSort?'开':'关'}</Button><small>仅在开启期间累计入队后的付费礼物；同金额按入队时间。关闭后可手动插队。</small></div> : <div className="feature-setting"><Button className="quiet feature-toggle" aria-pressed={compensationEnabled} disabled={Boolean(busy)} onClick={()=>setCompensationEnabled(!compensationEnabled)}>未中奖自动增加权重：{compensationEnabled?'开':'关'}</Button><div className="increment-row"><label>每轮增加<input type="number" aria-label="未中奖权重增量" min="0.01" max="10000" step="0.01" value={increment} onChange={e=>setIncrement(Number(e.target.value))}/></label><Button disabled={Boolean(busy)||increment===state.compensation.increment} onClick={()=>command('weights:compensation',{enabled:state.compensation.enabled,increment})}>应用增量</Button></div><Button tone="blue" disabled={Boolean(busy)||compensationEnabled===state.compensation.enabled} onClick={async()=>{if(await command('weights:compensation',{enabled:compensationEnabled,increment:state.compensation.increment}))advancedDialog.current?.close();}}>保存</Button><small>每次点击抽奖结算一次，写入专属名单。中奖者的 UID 和同名规则会删除。</small></div>}</dialog>,document.body)}
+                {createPortal(<dialog ref={advancedDialog} className="advanced-dialog" aria-labelledby="advanced-title"><header><h2 id="advanced-title">高级设置</h2><Button aria-label="关闭高级设置" onClick={()=>advancedDialog.current?.close()}><X size={18}/></Button></header><div className="feature-setting"><Button className="quiet feature-toggle" aria-pressed={state.blockRemoved} disabled={Boolean(busy)} onClick={()=>command('participant:block-removed',!state.blockRemoved)}>移除后禁止本轮重新加入：{state.blockRemoved?'开':'关'}</Button><small>点击即生效并保存，重启后沿用。关闭后，已移除观众可重新报名；已中奖和过号人员不会自动回到名单。</small></div>{queueMode ? <div className="feature-setting"><Button className="quiet feature-toggle" aria-pressed={state.giftSort} disabled={Boolean(busy)} onClick={()=>command('queue:gift-sort',!state.giftSort)}>礼物金额排序：{state.giftSort?'开':'关'}</Button><small>设置自动保存，重启后沿用。仅在开启期间累计入队后的付费礼物；同金额按入队时间。关闭后可手动插队。</small></div> : <div className="feature-setting"><Button className="quiet feature-toggle" aria-pressed={compensationEnabled} disabled={Boolean(busy)} onClick={()=>setCompensationEnabled(!compensationEnabled)}>未中奖自动增加权重：{compensationEnabled?'开':'关'}</Button><div className="increment-row"><label>每轮增加<input type="number" aria-label="未中奖权重增量" min="0.01" max="10000" step="0.01" value={increment} onChange={e=>setIncrement(Number(e.target.value))}/></label><Button disabled={Boolean(busy)||increment===state.compensation.increment} onClick={()=>command('weights:compensation',{enabled:state.compensation.enabled,increment})}>应用增量</Button></div><Button tone="blue" disabled={Boolean(busy)||compensationEnabled===state.compensation.enabled} onClick={async()=>{if(await command('weights:compensation',{enabled:compensationEnabled,increment:state.compensation.increment}))advancedDialog.current?.close();}}>保存</Button><small>每次点击抽奖结算一次，写入专属名单。中奖者的 UID 和同名规则会删除。</small></div>}</dialog>,document.body)}
             </aside>
             <section className="glass-panel feed-panel"><div className="panel-heading"><span><MessageCircle size={17}/>实时弹幕</span><small><span className={`live-dot ${active ? 'on' : ''}`}/> LIVE</small></div>
                 <div ref={feed} className="panel-scroll feed-scroll" onScroll={() => {if (feed.current) autoScroll.current = feed.current.scrollHeight - feed.current.scrollTop - feed.current.clientHeight < 60;}}>
@@ -290,7 +291,7 @@ function LiveApp({onStyleChange}:{onStyleChange?:(style:CSSProperties)=>void}={}
                 <div className="panel-scroll" ref={listScroll.ref} onWheel={listScroll.pause} onPointerDown={listScroll.pause}>{(tab === 'participants' ? state.participants : state.winners).length ? (tab === 'participants' ? state.participants : state.winners).map((person, index) => renderManagedPerson(person,index)) : <Empty icon={tab === 'participants' ? <Ticket size={30}/> : <Crown size={30}/>} title={tab === 'participants' ? '暂无参与者' : '暂无中奖者'} text={tab === 'participants' ? '符合关键词和粉丝牌条件的观众自动加入' : '点击抽取，迎接本轮中奖者'}/>}</div>
                 {!queueMode && <><div className="draw-controls"><label>抽取<input aria-label="抽取人数" type="number" min="1" max={Math.max(1, state.participants.length)} value={count} disabled={Boolean(busy)} onChange={event => {const value=Number(event.target.value);if(Number.isInteger(value)&&value>=1&&value<=10000)void command('lottery:draw-count',value);}}/>位</label><Button tone="gold" disabled={Boolean(busy) || !state.user || !state.ready || !Number.isInteger(count) || count < 1 || count > state.participants.length} onClick={() => draw(count)}><Gift size={17}/>抽取<ChevronRight size={14}/></Button></div>
                 <p className="draw-note">点击抽取将暂停收集 · 已中奖者不重复抽取</p></>}
-                <p className="management-note">{queueMode ? `${state.giftSort?'付费礼物累计金额降序，同额按入队时间':'拖动左侧手柄调整顺序，也可用上下箭头'} · ${state.participants.length}/${state.ready ? state.queueLimit : queueLimit} 人` : 'UID 规则优先于昵称规则和身份档位 · 仍可逐人修改权重'}</p>
+                {skippedPanel}<p className="management-note">{queueMode ? `${state.giftSort?'付费礼物累计金额降序，同额按入队时间':'拖动左侧手柄调整顺序，也可用上下箭头'} · ${state.participants.length}/${state.ready ? state.queueLimit : queueLimit} 人` : 'UID 规则优先于昵称规则和身份档位 · 仍可逐人修改权重'}</p>
             </section>
         </section>
 

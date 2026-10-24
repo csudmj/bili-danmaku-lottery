@@ -31,6 +31,8 @@ export type ConnectionState = 'connecting' | 'connected' | 'stopped';
 export interface LotterySnapshot {
     drawCount: number;
     giftSort: boolean;
+    blockRemoved: boolean;
+    skipped: Participant[];
     compensation: {enabled:boolean;increment:number};
     mode: ActivityMode;
     queueLimit: number;
@@ -55,6 +57,30 @@ export interface LotterySnapshot {
 
 // A single pool in the main process is shared by every window.
 export class LotteryPool {
+    private blockRemoved = true;
+    private removed = new Set<number>();
+    private skipped: Participant[] = [];
+    private joinSequence = 0;
+    setBlockRemoved(value:boolean){
+        if(typeof value!=='boolean')throw Error('无效的重新加入设置');
+        this.blockRemoved=value;
+    }
+    skip(uid:number){
+        if(this.mode!=='queue')throw Error('仅排队模式可过号');
+        const index=this.participants.findIndex(p=>p.uid===uid);
+        if(index<0)throw Error('该观众已不在队列中');
+        this.skipped.push(...this.participants.splice(index,1));
+    }
+    restoreSkipped(uid:number){
+        if(this.mode!=='queue')throw Error('仅排队模式可恢复过号');
+        if(this.participants.length>=this.queueLimit)throw Error('队列已满，请先腾出空位');
+        const index=this.skipped.findIndex(p=>p.uid===uid);
+        if(index<0)throw Error('该观众已不在过号名单中');
+        const [person]=this.skipped.splice(index,1);
+        person.joinedOrder=++this.joinSequence;
+        this.participants.push(person);
+        if(this.giftSort)this.participants.sort((a,b)=>(b.giftAmount??0)-(a.giftAmount??0)||(a.joinedOrder??0)-(b.joinedOrder??0));
+    }
     private giftSort = false;
     private compensation = {enabled:false,increment:0.1};
     private giftEvents = new Set<string>();
@@ -134,8 +160,10 @@ export class LotteryPool {
         const index = this.participants.findIndex(person => person.uid === uid);
         if (index < 0) throw new Error('该参与者已不在名单中');
         this.participants.splice(index, 1);
+        this.removed.add(uid);
+        this.manualWeights.delete(uid);
         this.removedCount++;
-        // Keep seen: removed viewers cannot reclaim a slot by repeatedly sending messages.
+        // Keep unique attendance; reentry is controlled separately by the removal policy.
     }
 
     setWeight(uid: number, weight: number) {
@@ -161,10 +189,11 @@ export class LotteryPool {
     }
 
     add(person: Participant): boolean {
-        if (!Number.isSafeInteger(person.uid) || person.uid <= 0 || !person.name || this.seen.has(person.uid)) return false;
+        if (!Number.isSafeInteger(person.uid) || person.uid <= 0 || !person.name || (this.seen.has(person.uid)&&!(this.removed.has(person.uid)&&!this.blockRemoved))) return false;
         if (this.mode === 'queue' && this.participants.length >= this.queueLimit) return false;
         this.seen.add(person.uid);
-        this.participants.push({...structuredClone(person), giftAmount:0,joinedOrder:this.seen.size,weight: this.mode==='lottery'?this.defaultWeight(person):1});
+        this.removed.delete(person.uid);
+        this.participants.push({...structuredClone(person), giftAmount:0,joinedOrder:++this.joinSequence,weight: this.mode==='lottery'?this.defaultWeight(person):1});
         return true;
     }
 
@@ -204,6 +233,7 @@ export class LotteryPool {
     }
 
     reset() {
+        this.removed.clear();this.skipped=[];this.joinSequence=0;
         this.manualWeights.clear();
         this.giftEvents.clear();
         this.seen.clear();
@@ -216,7 +246,7 @@ export class LotteryPool {
     }
 
     snapshot() {
-        return structuredClone({participants: this.participants, winners: this.winners,
+        return structuredClone({blockRemoved:this.blockRemoved,skipped:this.skipped,participants: this.participants, winners: this.winners,
             latestWinners: this.latestWinners, drawNumber: this.drawNumber, total: this.seen.size,
             giftSort:this.giftSort,compensation:this.compensation,mode: this.mode, queueLimit: this.queueLimit, removedCount: this.removedCount,
             weightRules:this.weightRules,queueOrderEdited:this.queueOrderEdited});

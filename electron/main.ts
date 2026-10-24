@@ -14,6 +14,7 @@ import {loadPersonalWeights,savePersonalWeights} from './personal-weights.ts';
 import type {PersonalWeight} from './lottery.ts';
 import {VideoLottery} from './video-lottery.ts';
 import {HistoryStore} from './history.ts';
+import {loadLivePreferences,saveLivePreferences} from './live-preferences.ts';
 import {loadOverlaySize,saveOverlaySize} from './overlay-size.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -327,7 +328,11 @@ handle('weights:rules', (_event,value)=>{
     applySavedWeights(defaultWeightsPath('live'),pool,input.rules,input.applyExisting);broadcast();
 },false);
 handle('weights:compensation',(_event,value)=>{pool.setCompensation(value as {enabled:boolean;increment:number});broadcast();},false);
-handle('queue:gift-sort',(_event,value)=>{pool.setGiftSort(value as boolean);broadcast();},false);
+const livePreferencesPath=()=>path.join(app.getPath('userData'),'live-preferences.json');
+handle('queue:gift-sort',(_event,value)=>{saveLivePreferences(livePreferencesPath(),{blockRemoved:pool.snapshot().blockRemoved,giftSort:value as boolean});pool.setGiftSort(value as boolean);broadcast();},false);
+handle('participant:block-removed',(_event,value)=>{saveLivePreferences(livePreferencesPath(),{blockRemoved:value as boolean,giftSort:pool.snapshot().giftSort});pool.setBlockRemoved(value as boolean);broadcast();},false);
+handle('queue:skip',(_event,value)=>{if(!Number.isSafeInteger(value))throw Error('无效的参与者');pool.skip(value as number);broadcast();});
+handle('queue:restore-skipped',(_event,value)=>{if(!Number.isSafeInteger(value))throw Error('无效的参与者');pool.restoreSkipped(value as number);broadcast();});
 handle('weights:reset',()=>{applySavedWeights(defaultWeightsPath('live'),pool,pool.snapshot().weightRules,false,true);broadcast();},false);
 handle('weights:personal:get',()=>({entries:personalWeights,loadError:personalWeightsLoadError,revision:personalRevision}),false);
 handle('weights:personal:save',(_event,value)=>{
@@ -374,6 +379,8 @@ app.whenReady().then(() => {
     for(const [source,target] of [['live',pool],['video',video.pool]] as const){
         try{target.setWeightRules(loadDefaultWeights(defaultWeightsPath(source)),false);}catch(error){console.error('读取默认权重失败，保留原文件',error);}
     }
+    const livePreferences=loadLivePreferences(livePreferencesPath());
+    pool.setBlockRemoved(livePreferences.blockRemoved);pool.setGiftSort(livePreferences.giftSort);
     createWindow();
     void setupUpdates(() => mainWindow, () => connection !== 'stopped'||video.status==='loading').catch(() => notice('更新组件初始化失败，请使用启动检查或重新安装'));
     const timer = setInterval(() => {void refreshLogin().catch(() => {});}, 60000);

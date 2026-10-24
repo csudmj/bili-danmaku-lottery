@@ -3,9 +3,9 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import type {LotteryPool,Participant} from './lottery.ts';
 const validPerson=(p:unknown):boolean=>{if(!p||typeof p!=='object')return false;const v=p as Record<string,unknown>;return Number.isSafeInteger(v.uid)&&(v.uid as number)>0&&typeof v.name==='string';};
-const validRound=(r:HistoryRound):boolean=>Boolean(r&&typeof r.id==='string'&&['live','video'].includes(r.source)&&['lottery','queue'].includes(r.mode)&&typeof r.target==='string'&&typeof r.keyword==='string'&&typeof r.startedAt==='string'&&Number.isFinite(Date.parse(r.startedAt))&&Array.isArray(r.people)&&r.people.every(p=>validPerson(p)&&['pending','winner','removed'].includes(p.status))&&Array.isArray(r.order)&&r.order.every(uid=>Number.isSafeInteger(uid)&&uid>0)&&Array.isArray(r.draws)&&r.draws.every(d=>d&&Number.isSafeInteger(d.number)&&Array.isArray(d.winners)&&d.winners.every(validPerson)));
+const validRound=(r:HistoryRound):boolean=>Boolean(r&&typeof r.id==='string'&&['live','video'].includes(r.source)&&['lottery','queue'].includes(r.mode)&&typeof r.target==='string'&&typeof r.keyword==='string'&&typeof r.startedAt==='string'&&Number.isFinite(Date.parse(r.startedAt))&&Array.isArray(r.people)&&r.people.every(p=>validPerson(p)&&['pending','winner','removed','skipped'].includes(p.status))&&Array.isArray(r.order)&&r.order.every(uid=>Number.isSafeInteger(uid)&&uid>0)&&Array.isArray(r.draws)&&r.draws.every(d=>d&&Number.isSafeInteger(d.number)&&Array.isArray(d.winners)&&d.winners.every(validPerson)));
 type PoolState=ReturnType<LotteryPool['snapshot']>;
-export interface HistoryPerson extends Participant {status:'pending'|'winner'|'removed'}
+export interface HistoryPerson extends Participant {status:'pending'|'winner'|'removed'|'skipped'}
 export interface VideoHistoryDetails {kind:'danmu'|'comments';start:number|null;end:number|null;cutoff:number;includeReplies:boolean;root:string}
 export interface HistoryRound {video?:VideoHistoryDetails;id:string;source:'live'|'video';mode:'lottery'|'queue';target:string;keyword:string;startedAt:string;updatedAt:string;endedAt?:string;people:HistoryPerson[];order:number[];draws:{number:number;at:string;winners:Participant[]}[];giftSort:boolean}
 export class HistoryStore {
@@ -28,6 +28,7 @@ export class HistoryStore {
         if(!round){round={id:randomUUID(),source,mode:state.mode,target,keyword,startedAt:now,updatedAt:now,people:[],order:[],draws:[],giftSort:state.giftSort};this.active.set(source,round.id);this.rounds.unshift(round);let count=0;this.rounds=this.rounds.filter(r=>r.source!==source||++count<=20);}
         const people=new Map(round.people.map(p=>[p.uid,{...p,status:'removed' as HistoryPerson['status']}]));
         for(const p of state.participants)people.set(p.uid,{...p,status:'pending'});
+        for(const p of state.skipped??[])people.set(p.uid,{...p,status:'skipped'});
         for(const p of state.winners)people.set(p.uid,{...p,status:'winner'});
         if(video)round.video={...video};
         round.people=[...people.values()];round.order=state.participants.map(p=>p.uid);round.updatedAt=now;round.giftSort=state.giftSort;

@@ -1,6 +1,6 @@
 # 抽奖姬
 
-**Developer: 想吃金丝虾球** · Windows 10/11 x64 · Version 2.3.2
+**Developer: 想吃金丝虾球** · Windows 10/11 x64 · Version 2.3.4
 
 [简体中文](README.md) | [English](README.en.md)
 
@@ -37,8 +37,8 @@ Comments can come from accessible public videos. Creator-center danmu still requ
 
 ## Download and quick start
 
-1. Open [Releases](https://github.com/csudmj/bili-danmaku-lottery/releases) and install `bili-danmaku-lottery-2.3.2-x64.exe` for in-app updates. GitHub's automatic Source code downloads are not runnable application packages.
-2. Alternatively, download `bili-danmaku-lottery-Windows-x64-v2.3.2.zip` and extract the entire ZIP to a writable directory and run `抽奖姬.exe`. Keep the adjacent `resources`, `locales`, DLLs, and other files. End users do not need Node.js or Python.
+1. Open [Releases](https://github.com/csudmj/bili-danmaku-lottery/releases) and install `bili-danmaku-lottery-2.3.4-x64.exe` for in-app updates. GitHub's automatic Source code downloads are not runnable application packages.
+2. Alternatively, download `bili-danmaku-lottery-Windows-x64-v2.3.4.zip` and extract the entire ZIP to a writable directory and run `抽奖姬.exe`. Keep the adjacent `resources`, `locales`, DLLs, and other files. End users do not need Node.js or Python.
 3. Select **登录 B 站** and sign in yourself on the official webpage opened by the app. This session is separate from other browsers.
 4. Select draw or queue mode, enter a room ID and keyword, and choose the medal requirement.
 5. Select **开始收集**. Wait for **正在获取弹幕** before asking viewers to enter. The portrait window opens after connection succeeds.

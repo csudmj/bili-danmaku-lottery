@@ -269,3 +269,20 @@ test('overlay close flushes its last size and reopening restores it',async()=>{
  assert.equal(reopened.options.width,510);assert.equal(reopened.options.height,920);
  reopened.close();
 });
+test('live advanced options persist and queue skip is shared with history',async()=>{
+ await call('lottery:reset');
+ assert.equal((await call('participant:block-removed',false)).ok,true);
+ assert.equal((await call('queue:gift-sort',true)).ok,true);
+ assert.deepEqual(JSON.parse(readFileSync(path.join(testFolder,'live-preferences.json'),'utf8')),{blockRemoved:false,giftSort:true});
+ assert.equal((await call('queue:gift-sort','bad')).ok,false);
+ assert.equal((await state()).giftSort,true);
+ const start=await call('lottery:start',{...config,mode:'queue',queueLimit:2});assert.equal(start.ok,true,start.message);application.sendConnectionState('connected');add(701);add(702);
+ assert.equal((await call('queue:skip',701)).ok,true);
+ assert.equal((await state()).skipped[0].uid,701);assert.equal((await state()).participants[0].uid,702);
+ assert.equal((await call('history:get')).data.rounds[0].people.find(p=>p.uid===701).status,'skipped');
+ add(701);assert.equal((await state()).participants.length,1);
+ assert.equal((await call('queue:restore-skipped',701)).ok,true);
+ assert.equal((await state()).participants[1].uid,701);
+ await call('participant:remove',701);add(701);assert.equal((await state()).participants.length,2);
+ await call('lottery:reset');assert.equal((await state()).blockRemoved,false);assert.equal((await state()).giftSort,true);
+});

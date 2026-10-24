@@ -19,7 +19,7 @@ test('reset before or after a draw clears history and permits the same viewer ag
         pool.add({uid:1, name:'观众'});
         if (drawFirst) pool.draw(1);
         pool.reset();
-        assert.deepEqual(pool.snapshot(), {participants:[], winners:[], latestWinners:[], drawNumber:0, total:0, giftSort:false,compensation:{enabled:false,increment:0.1},mode:'lottery', queueLimit:20, removedCount:0,weightRules:DEFAULT_WEIGHTS,queueOrderEdited:false});
+        assert.deepEqual(pool.snapshot(), {blockRemoved:true,skipped:[],participants:[], winners:[], latestWinners:[], drawNumber:0, total:0, giftSort:false,compensation:{enabled:false,increment:0.1},mode:'lottery', queueLimit:20, removedCount:0,weightRules:DEFAULT_WEIGHTS,queueOrderEdited:false});
         assert.equal(pool.add({uid:1, name:'观众'}), true);
     }
 });
